@@ -7,17 +7,18 @@ pg.init()
 
 class PgBase:
 	
-	def __init__(self, win_size):
+	def __init__(self, win_size: pg.Vector2 | list[int, int] | tuple[int, int], fps: int = 60, *, flags=FULLSCREEN):
 		self.win = win_size
-		self.screen = pg.display.set_mode(win_size, RESIZABLE + SCALED)
+		self.display = pg.display.set_mode(win_size, flags)
+		self.headers = pg.font.SysFont('Arial', 20, bold=True)
 		self.events = ()
 		self.clock = pg.time.Clock()
-		self.FPS = 60
+		self.FPS = fps
 	
-	def exit(self):
+	@staticmethod
+	def exit():
 		sys.exit()
 	
 	def refresh(self):
 		self.clock.tick(self.FPS)
 		pg.display.flip()
-		
