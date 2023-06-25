@@ -1,67 +1,63 @@
-from app.PygameBase import *
-from app.img import DefImgs, DefColor, scale
-import app
-import sys
+import pygame as pg
+from pygame.locals import *
 
 
-class Main(app.SceneHandler, PgBase):
+class Main:
 	
-	def __init__(self):
-		app.SceneHandler.__init__(self)
-		PgBase.__init__(self, pg.Vector2(pg.display.get_desktop_sizes()[0]), flags=FULLSCREEN)
-		self.tabs = [sys.argv[1] if len(sys.argv) > 1 else "choose project"]
-		self.scene = sys.argv[1] if len(sys.argv) > 1 else 'choose project'
-		self.resize()
-		
-	def resize(self):
-		self.add_scene_data('choose project',
-		                    {
-			                    'tab-height': 12,
-		                    }
-		                    )
-		
+	def __init__(self, tile_size=(32, 32)):
+		pg.init()
+		"""===[ WINDOW ]==="""
+		self.win = pg.display.get_desktop_sizes()[0]
+		self.display = pg.display.set_mode(self.win, flags=FULLSCREEN)
+		self.clock = pg.Clock()
+		self.FPS = -1
+		"""===[ GUI ]==="""
+		self.offset = pg.Vector2(0, 0)
+		self.events = None
+		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
+		self.load = pg.Rect(self.sidebar.centerx, self.sidebar.y + self.sidebar.h/3, self.sidebar.w/1.5, 150)
+		"""===[ CUSTOMIZABLE ]==="""
+		self.grid = {(min(i, 50), i//50): 0 for i in range(50*2)}
+		self.tile_size = tile_size
+		self.zoom = 1
+		self.mouse_sensitivity = 1
+	
 	def refresh(self):
-		self.display.fill(DefColor.background)
-		data = self.data()
-		if self.scene == 'choose project':
-			for i, tab in enumerate(self.tabs):
-				pos = (i * DefImgs.button.get_width(), data['tab-height'])
-				text_size = self.headers.size(tab)
-				self.display.blit(DefImgs.button, pos)
-				self.display.blit(self.headers.render(tab, True, DefColor.text_header),
-				                  (
-					                  pos[0]+(DefImgs.button.get_width()-text_size[0])/2,
-					                  pos[1]+(DefImgs.button.get_height()-text_size[1])/2.5
-				                  ))
-			size = pg.Rect(0, data['tab-height']+DefImgs.button.get_height(),
-			               self.display.get_width(), self.display.get_height())
-			pg.draw.rect(self.display, DefColor.tab_background, size)
-			pg.draw.line(self.display, DefColor.background_line,
-			                 (len(self.tabs)*DefImgs.button.get_width(), data['tab-height']+DefImgs.button.get_height()),
-			                 (self.display.get_width(), data['tab-height']+DefImgs.button.get_height()),4)
-			self.display.blit(scale(DefImgs.textbox, (size.w/2-20,size.h/2-20)), (size.x+10,size.y+10))
-			
-	def EventHandler(self):
+		self.display.fill(0)
+		x = -self.offset[0] + self.tile_size[0] + self.sidebar.right
+		y = -self.offset[1] + self.tile_size[1]
+		pg.draw.line(self.display, "white", (x, 0), (x, self.display.get_height()), 5)
+		pg.draw.line(self.display, "white", (0, y), (self.display.get_width(), y), 5)
+		for i in range(120):
+			x = i * self.tile_size[0] - self.offset[0] % self.tile_size[0] - self.tile_size[0] + self.sidebar.right
+			x2 = self.sidebar.right - self.offset[0] % self.tile_size[0] - self.tile_size[0]
+			y = i * self.tile_size[1] - self.offset[1] % self.tile_size[1] - self.tile_size[0]
+			w = 1
+			pg.draw.line(self.display, "white", (x, 0), (x, self.display.get_height()), w)
+			pg.draw.line(self.display, "white", (x2, y), (self.display.get_width(), y), w)
+			pg.draw.rect(self.display, (0, 0, 0, 20), self.sidebar)
+		pg.display.flip()
+		self.clock.tick(self.FPS)
+
+	def eventHandler(self):
 		self.events = pg.event.get()
 		for event in self.events:
 			if event.type == QUIT:
-				self.exit()
-			if event.type == WINDOWRESIZED:
-				self.resize()
-			if self.scene == 'choose project': pass
-			if event.type == KEYDOWN:
-				if event.key == K_ESCAPE:
-					return True
+				pg.quit()
+				return 1
+			if event.type == MOUSEMOTION:
+				if event.buttons[1]:
+					self.offset -= pg.Vector2(event.rel) * self.mouse_sensitivity
 	
 	def run(self):
 		while True:
 			self.refresh()
-			if self.EventHandler():
-				return True
-			PgBase.refresh(self)
-		
-		
+			if self.eventHandler():
+				return 1
+			pg.display.set_caption("{:.2f}".format(self.clock.get_fps()))
+
+
 if __name__ == '__main__':
-	app = Main()
-	app.run()
-			
+	main = Main()
+	main.run()
+	
