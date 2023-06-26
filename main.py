@@ -35,6 +35,7 @@ class Main:
 		self.sprite_sheet_grid_color = "white"
 		self.grid_color = "white"
 		self.selection_color = "red"
+		self.selection_name = None
 		self.selection = pg.Rect(0, 0, 0, 0)
 		self.tiles = {}
 		self.grid = {}
@@ -66,22 +67,21 @@ class Main:
 		sp_sheet = pg.transform.scale_by(self.sprite_sheet, self.sprite_sheet_zoom)
 		pg.draw.rect(sp_sheet, self.selection_color, pg.Rect(
 			self.selection.x * self.sprite_sheet_zoom, self.selection.y * self.sprite_sheet_zoom,
-			self.selection.w * self.sprite_sheet_zoom, self.selection.h * self.sprite_sheet_zoom), width=1)
+			self.selection.w * self.sprite_sheet_zoom, self.selection.h * self.sprite_sheet_zoom), width=3)
 		if self.sprite_sheet.get_width() > self.sprite_sheet.get_height():
 			r = self.sprite_sheet.get_width() / self.tile_size[0]
 		else:
 			r = self.sprite_sheet.get_height() / self.tile_size[1]
 		self.display.blit(sp_sheet, (rect.x, rect.y), pg.Rect(self.sprite_sheet_offset, (rect.w, rect.h)))
 		for idx in range(int(r/self.sprite_sheet_zoom)+2):
-			x = idx * self.tile_size[0] * self.sprite_sheet_zoom + self.sprite_sheet_offset.x % self.tile_size[0] * \
-			    self.sprite_sheet_zoom + rect.left
+			x = idx * self.tile_size[0] * self.sprite_sheet_zoom - self.sprite_sheet_offset.x % (self.tile_size[0]*self.sprite_sheet_zoom) + rect.left
 			if rect.left <= x <= rect.right:
 				pg.draw.line(self.display, self.sprite_sheet_grid_color, (x, rect.top), (x, rect.bottom), 1)
-			y = rect.y + idx * self.tile_size[1] * self.sprite_sheet_zoom + self.sprite_sheet_offset.y % \
-			    self.tile_size[1] * self.sprite_sheet_zoom
+			y = rect.y + idx * self.tile_size[1] * self.sprite_sheet_zoom - self.sprite_sheet_offset.y % \
+			    (self.tile_size[1] * self.sprite_sheet_zoom)
 			if rect.top <= y <= rect.bottom:
 				pg.draw.line(self.display, self.sprite_sheet_grid_color, (rect.left, y), (rect.right, y), 1)
-		if self.selection.topleft != (0, 0):
+		if self.selection != (0, 0, 0, 0):
 			self.display.blit(self.save_selection,
 			                  (self.sidebar.centerx - self.save_selection.get_width() / 2, self.sidebar.centery - 50))
 		pg.display.flip()
@@ -93,32 +93,42 @@ class Main:
 			if event.type == QUIT:
 				pg.quit()
 				return 1
+			elif event.type == TEXTINPUT:
+				self.selection_name += event.text
 			elif event.type == KEYDOWN:
 				if event.key == K_F11:
 					pg.display.toggle_fullscreen()
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
-					self.selection.x = pg.math.clamp(
-						(event.pos[0] - (
-									self.sidebar.centerx - self.sprite_sheet.get_width() / 2 - self.sprite_sheet_offset.x)) /
-						self.sprite_sheet_zoom,
-						0, self.sprite_sheet.get_width()
-					)
-					self.selection.y = pg.math.clamp(
-						(event.pos[1] - self.sidebar.centery - self.sprite_sheet_offset.y) / self.sprite_sheet_zoom,
-						0, self.sprite_sheet.get_height()
-					)
-					self.selection.w = 0
-					self.selection.h = 0
+					if event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and event.pos[1] >= self.sidebar.centery:
+						self.selection.x = pg.math.clamp(
+							(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom,
+							0, self.sprite_sheet.get_width()
+						)
+						self.selection.y = pg.math.clamp(
+							(event.pos[1] - self.sidebar.centery - self.sprite_sheet_offset.y) / self.sprite_sheet_zoom,
+							0, self.sprite_sheet.get_height()
+						)
+						self.selection.w = 0
+						self.selection.h = 0
+					else:
+						if self.save_selection.get_rect(topleft=(
+								self.sidebar.centerx-self.save_selection.get_width()/2,
+								self.sidebar.centery-50)).collidepoint(event.pos) and self.selection_name is not None \
+								and self.selection.topleft != (0, 0):
+							self.tiles[self.selection_name] = self.selection.copy()
+							self.selection = pg.Rect(0, 0, 0, 0)
+							self.selection_name = None
 			elif event.type == MOUSEBUTTONUP:
 				if event.button == 1:
 					self.selection.w = pg.math.clamp(
-						(event.pos[0] - (self.selection.x + self.sidebar.centerx - self.sprite_sheet.get_width() / 2 -
-						                 self.sprite_sheet_offset.x)) / self.sprite_sheet_zoom + 1, 0,
-						self.sprite_sheet.get_width())
+							(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom-self.selection.x+1,
+							0, self.sprite_sheet.get_width()
+						)
 					self.selection.h = pg.math.clamp(
-						(event.pos[1] - (self.selection.y + self.sidebar.centery)) / self.sprite_sheet_zoom + 1,
-						0, self.sprite_sheet.get_height())
+							(event.pos[1]-self.sidebar.centery-self.sprite_sheet_offset.y)/self.sprite_sheet_zoom-self.selection.y+1,
+							0, self.sprite_sheet.get_height()
+						)
 					print(self.selection)
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
