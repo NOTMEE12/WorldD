@@ -35,7 +35,7 @@ class Main:
 		self.sprite_sheet_grid_color = "white"
 		self.grid_color = "white"
 		self.selection_color = "red"
-		self.selection_name = None
+		self.selection_name = ""
 		self.selection = pg.Rect(0, 0, 0, 0)
 		self.tiles = {}
 		self.grid = {}
@@ -83,7 +83,13 @@ class Main:
 				pg.draw.line(self.display, self.sprite_sheet_grid_color, (rect.left, y), (rect.right, y), 1)
 		if self.selection != (0, 0, 0, 0):
 			self.display.blit(self.save_selection,
-			                  (self.sidebar.centerx - self.save_selection.get_width() / 2, self.sidebar.centery - 50))
+			                  (self.sidebar.centerx - self.save_selection.get_width() / 2, self.sidebar.centery - 100))
+			text = self.text.render(self.selection_name, False, (120, 120, 120))
+			self.display.blit(text, (self.sidebar.centerx-text.get_width()/2, self.sidebar.centery - 50))
+		for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
+			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
+			self.display.blit(pg.transform.scale(self.sprite_sheet.subsurface(tile), (50, 50)), (idx % 8 * 55+5, idx // 8 * 95+5))
+			self.display.blit(text, (idx % 8 * 55 + 27.5 - text.get_width()/2, idx // 8 * 95+55))
 		pg.display.flip()
 		self.clock.tick(self.FPS)
 	
@@ -93,11 +99,23 @@ class Main:
 			if event.type == QUIT:
 				pg.quit()
 				return 1
-			elif event.type == TEXTINPUT:
-				self.selection_name += event.text
 			elif event.type == KEYDOWN:
 				if event.key == K_F11:
 					pg.display.toggle_fullscreen()
+				elif self.save_selection != (0, 0, 0, 0):
+					if event.key == K_ESCAPE:
+						self.selection = pg.Rect(0, 0, 0, 0)
+						self.selection_name = ""
+					elif event.key == K_BACKSPACE:
+						self.selection_name = self.selection_name[:-1]
+					elif event.key == K_DELETE:
+						pass
+					elif event.key == K_RETURN:
+						self.tiles[self.selection_name] = tuple(self.selection.copy())
+						self.selection = pg.Rect(0, 0, 0, 0)
+						self.selection_name = ""
+					else:
+						self.selection_name += event.unicode
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
 					if event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and event.pos[1] >= self.sidebar.centery:
@@ -111,25 +129,18 @@ class Main:
 						)
 						self.selection.w = 0
 						self.selection.h = 0
-					else:
-						if self.save_selection.get_rect(topleft=(
-								self.sidebar.centerx-self.save_selection.get_width()/2,
-								self.sidebar.centery-50)).collidepoint(event.pos) and self.selection_name is not None \
-								and self.selection.topleft != (0, 0):
-							self.tiles[self.selection_name] = self.selection.copy()
-							self.selection = pg.Rect(0, 0, 0, 0)
-							self.selection_name = None
 			elif event.type == MOUSEBUTTONUP:
 				if event.button == 1:
-					self.selection.w = pg.math.clamp(
-							(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom-self.selection.x+1,
-							0, self.sprite_sheet.get_width()
-						)
-					self.selection.h = pg.math.clamp(
-							(event.pos[1]-self.sidebar.centery-self.sprite_sheet_offset.y)/self.sprite_sheet_zoom-self.selection.y+1,
-							0, self.sprite_sheet.get_height()
-						)
-					print(self.selection)
+					if event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and event.pos[
+						1] >= self.sidebar.centery:
+						self.selection.w = pg.math.clamp(
+								(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom-self.selection.x+1,
+								0, self.sprite_sheet.get_width()
+							)
+						self.selection.h = pg.math.clamp(
+								(event.pos[1]-self.sidebar.centery-self.sprite_sheet_offset.y)/self.sprite_sheet_zoom-self.selection.y+1,
+								0, self.sprite_sheet.get_height()
+							)
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
