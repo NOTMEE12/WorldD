@@ -36,6 +36,7 @@ class Main:
 		self.sprite_sheet_grid_color = "white"
 		self.grid_color = "white"
 		self.selection_color = "red"
+		self.selected_tile_color = "white"
 		self.selection_name = ""
 		self.selection = pg.Rect(0, 0, 0, 0)
 		self.tiles = {}
@@ -89,8 +90,11 @@ class Main:
 			self.display.blit(text, (rect.centerx-text.get_width()/2, rect.bottom + 50))
 		tiles = pg.Surface((self.sidebar.w, self.sidebar.centery))
 		for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
+			pos = pg.Vector2(idx % 7 * 69+5, idx//7*109+5+self.scroll)
 			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
-			tiles.blit(pg.transform.scale(self.sprite_sheet.subsurface(tile), (64, 64)), (idx % 7 * 69+5, idx//7*109+5+self.scroll))
+			if name == self.selected_tile:
+				pg.draw.rect(tiles, self.selected_tile_color, pg.Rect(pos.x-4, pos.y-4, 72, 72))
+			tiles.blit(pg.transform.scale(self.sprite_sheet.subsurface(tile), (64, 64)), pos)
 			tiles.blit(text, (idx % 7 * 69+5+32-text.get_width()/2, idx//7*109+5+64+self.scroll))
 		self.display.blit(tiles, (0, 0))
 		tile_size = self.header.render(f'{self.tile_size[0]}x{self.tile_size[1]}', True, (200, 200, 200))
@@ -127,20 +131,31 @@ class Main:
 						self.selection_name += event.unicode
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
-					if event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and event.pos[1] >= self.sidebar.centery:
-						self.selection.x = pg.math.clamp(
-							(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom,
-							0, self.sprite_sheet.get_width()
-						)
-						self.selection.y = pg.math.clamp(
-							(event.pos[1] - self.sidebar.centery - self.sprite_sheet_offset.y) / self.sprite_sheet_zoom,
-							0, self.sprite_sheet.get_height()
-						)
-						self.selection.w = 0
-						self.selection.h = 0
-					elif self.sidebar.collidepoint(event.pos):
-						for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
-							pass
+					if event.pos[0] < self.sidebar.right:
+						if event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and event.pos[1] >= self.sidebar.centery:
+							self.selection.x = pg.math.clamp(
+								(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom,
+								0, self.sprite_sheet.get_width()
+							)
+							self.selection.y = pg.math.clamp(
+								(event.pos[1] - self.sidebar.centery - self.sprite_sheet_offset.y) / self.sprite_sheet_zoom,
+								0, self.sprite_sheet.get_height()
+							)
+							self.selection.w = 0
+							self.selection.h = 0
+						elif self.sidebar.collidepoint(event.pos):
+							for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
+								if pg.Rect((idx % 7 * 69+5, idx//7*109+5+self.scroll), (64, 64)).collidepoint(event.pos):
+									print(name, tile)
+									self.selected_tile = name
+									print(name)
+									break
+					else:
+						self.grid[
+							(
+								(event.pos[0]-self.offset[0])//self.tile_size[0],
+								(event.pos[1]-self.offset[1])//self.tile_size[1])
+						] = self.selected_tile
 			elif event.type == MOUSEBUTTONUP:
 				if event.button == 1:
 					if event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and event.pos[
