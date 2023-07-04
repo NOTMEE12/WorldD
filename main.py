@@ -69,7 +69,7 @@ class Main:
 		self.sprite_sheet = pg.image.load(self.sprite_sheet_path).convert_alpha()
 		self.tiles = {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in data['data'].items()}
 		print(self.tiles)
-		self.grid = { tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
 		self.destination.close()
 		self.destination = None
 	
