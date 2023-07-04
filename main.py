@@ -50,10 +50,8 @@ class Main:
 	
 	def refresh(self):
 		self.display.fill(0)
-		x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
-		y = self.offset[1] * self.zoom - self.tile_size[1]
-		pg.draw.line(self.display, "white", (x, 0), (x, self.display.get_height()), 5)
-		pg.draw.line(self.display, "white", (0, y), (self.display.get_width(), y), 5)
+		bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
+		bold_y = self.offset[1] * self.zoom - self.tile_size[1]
 		for idx in range(int(max(self.display.get_width() / self.tile_size[0], self.display.get_height() /
 		                                                                       self.tile_size[1]) / self.zoom)):
 			x = idx * self.tile_size[0] * self.zoom + self.offset[0] % self.tile_size[0] * self.zoom - \
@@ -62,6 +60,17 @@ class Main:
 			x2 = self.sidebar.right - self.offset[0] % self.tile_size[0] - self.tile_size[0]
 			y = idx * self.tile_size[1] * self.zoom + self.offset[1] % self.tile_size[1] * self.zoom - self.tile_size[0]
 			pg.draw.line(self.display, self.grid_color, (x2, y), (self.display.get_width(), y), 1)
+		# ===[ GRID ]===
+		for pos, name in self.grid.items():
+			size = self.tile_size * self.zoom
+			x = bold_x + size[0] * pos[0]
+			y = bold_y + size[1] * pos[1]
+			self.display.blit(pg.transform.scale(self.sprite_sheet.subsurface(self.tiles[name]), size), (x, y))
+		# ===[ BOLD LINES ]===
+		pg.draw.line(self.display, "white", (bold_x, 0), (bold_x, self.display.get_height()), 5)
+		pg.draw.line(self.display, "white", (0, bold_y), (self.display.get_width(), bold_y), 5)
+		pg.draw.circle(self.display, "white", (bold_x, bold_y), 15)
+		"""===[ SIDEBAR ]==="""
 		rect = self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
 		                                  top=self.sidebar.centery)
 		pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
@@ -146,20 +155,23 @@ class Main:
 						elif self.sidebar.collidepoint(event.pos):
 							for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
 								if pg.Rect((idx % 7 * 69+5, idx//7*109+5+self.scroll), (64, 64)).collidepoint(event.pos):
-									print(name, tile)
 									self.selected_tile = name
-									print(name)
 									break
 					else:
-						self.grid[
-							(
-								(event.pos[0]-self.offset[0])//self.tile_size[0],
-								(event.pos[1]-self.offset[1])//self.tile_size[1])
-						] = self.selected_tile
+						if self.selected_tile is not None:
+							bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
+							bold_y = self.offset[1] * self.zoom - self.tile_size[1]
+							pos = (
+								int((event.pos[0]-bold_x)//(self.tile_size[0]*self.zoom)),
+								int((event.pos[1]-bold_y)//(self.tile_size[1]*self.zoom))
+							)
+							self.grid[pos] = self.selected_tile
 			elif event.type == MOUSEBUTTONUP:
 				if event.button == 1:
-					if event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and event.pos[
-						1] >= self.sidebar.centery:
+					if self.sidebar.centerx + self.sprite_sheet.get_width() / 2 \
+							>= event.pos[0] >= \
+							self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and \
+							event.pos[1] >= self.sidebar.centery:
 						self.selection.w = pg.math.clamp(
 								(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom-self.selection.x+1,
 								0, self.sprite_sheet.get_width()
@@ -172,8 +184,8 @@ class Main:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
 						self.offset += pg.Vector2(event.rel) * self.mouse_sensitivity / self.zoom
-				elif self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2 - 5,
-				                                top=self.sidebar.centery - 5).collidepoint(event.pos):
+				elif self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
+				                                top=self.sidebar.centery).collidepoint(event.pos[0], event.pos[1]):
 					if event.buttons[1]:
 						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.mouse_sensitivity
 						self.sprite_sheet_offset.x = pg.math.clamp(self.sprite_sheet_offset.x, 0,
