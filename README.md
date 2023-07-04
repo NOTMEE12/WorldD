@@ -1,3 +1,5 @@
 # WorldD - level designer for pygame
-### WorldD features:
-- dynamic generating
+### Shortcuts:
+- `Up and Down arrows` - scaling size of the tile
+- `F11` - toggling fullscreen
+- `CTRL + S` - save output

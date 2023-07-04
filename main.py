@@ -2,6 +2,7 @@ import pygame as pg
 from pygame.locals import *
 import tkinter
 from tkinter import filedialog
+import json
 import sys
 
 
@@ -20,15 +21,25 @@ class Main:
 		self.offset = pg.Vector2(tile_size[0] * 2, tile_size[1] * 2)
 		self.events = None
 		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
-		self.load = pg.Rect(self.sidebar.centerx, self.sidebar.y + self.sidebar.h / 3, self.sidebar.w / 1.5, 150)
 		self.text = pg.font.SysFont('Arial', 30, False, False)
 		self.header = pg.font.SysFont('Arial', 35, True, False)
 		self.save_selection = self.header.render("Save selection? (name/ESC)", True, (250, 250, 250))
 		self.sprite_sheet = None
 		"""===[ CUSTOMIZABLE ]==="""
+		self.destination = None
+		self.path = None
+		self.sprite_sheet_path = None
+		self.tiles = {}
+		self.grid = {}
 		try:
-			self.sprite_sheet = pg.image.load(filedialog.askopenfile(filetypes=[('image', '*.png'), ('image', '*.jpg')]))\
-				.convert_alpha()
+			file = filedialog.askopenfile(filetypes=[('image', '*.png'), ('image', '*.jpg'), ('save', '*.world')])
+			if file.name.split('.')[-1].lower() != 'world':
+				self.sprite_sheet = pg.image.load(file.name).convert_alpha()
+				self.sprite_sheet_path = file.name
+			else:
+				self.path = file.name
+				self.load()
+			file.close()
 		except TypeError:
 			sys.exit()
 		self.selected_tile = None
@@ -39,14 +50,28 @@ class Main:
 		self.selected_tile_color = "white"
 		self.selection_name = ""
 		self.selection = pg.Rect(0, 0, 0, 0)
-		self.tiles = {}
-		self.grid = {}
 		self.tile_size = pg.Vector2(tile_size)
 		self.zoom = 1
 		self.mouse_sensitivity = 1
 		self.scroll_sensitivity = .1
 		self.sprite_sheet_zoom = 1
 		self.sprite_sheet_offset = pg.Vector2(0, 0)
+	
+	def load(self):
+		if self.destination is None:
+			if self.path is None:
+				self.destination = filedialog.askopenfile('a+', defaultextension='.world')
+				self.path = self.destination.name
+			else:
+				self.destination = open(self.path)
+		data = json.load(self.destination)
+		self.sprite_sheet_path = data['img']
+		self.sprite_sheet = pg.image.load(self.sprite_sheet_path).convert_alpha()
+		self.tiles = {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in data['data'].items()}
+		print(self.tiles)
+		self.grid = { tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+		self.destination.close()
+		self.destination = None
 	
 	def refresh(self):
 		self.display.fill(0)
@@ -98,7 +123,7 @@ class Main:
 			text = self.text.render(self.selection_name, False, (120, 120, 120))
 			self.display.blit(text, (rect.centerx-text.get_width()/2, rect.bottom + 50))
 		tiles = pg.Surface((self.sidebar.w, self.sidebar.centery))
-		for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
+		for idx, (name, tile) in enumerate(self.tiles.items()):
 			pos = pg.Vector2(idx % 7 * 69+5, idx//7*109+5+self.scroll)
 			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
 			if name == self.selected_tile:
@@ -111,6 +136,28 @@ class Main:
 		pg.display.flip()
 		self.clock.tick(self.FPS)
 	
+	def save(self):
+		if self.destination is None:
+			if self.path is None:
+				self.destination = filedialog.asksaveasfile('a+', defaultextension='.world')
+				self.path = self.destination.name
+			else:
+				self.destination = open(self.path, 'a+')
+			print(self.destination.name)
+		self.destination.seek(0)
+		self.destination.truncate(0)
+		self.destination.write(
+			json.dumps(
+				{
+					'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
+					'data': {f"{pos}": tile for tile, pos in self.tiles.items()},
+					'img': self.sprite_sheet_path
+				}
+			)
+		)
+		self.destination.close()
+		self.destination = None
+			
 	def eventHandler(self):
 		self.events = pg.event.get()
 		for event in self.events:
@@ -124,6 +171,8 @@ class Main:
 					self.tile_size *= 2
 				elif event.key == K_DOWN:
 					self.tile_size /= 2
+				elif event.mod & KMOD_CTRL and event.key == K_s:
+					self.save()
 				elif self.save_selection != (0, 0, 0, 0):
 					if event.key == K_ESCAPE:
 						self.selection = pg.Rect(0, 0, 0, 0)
@@ -134,6 +183,7 @@ class Main:
 						pass
 					elif event.key == K_RETURN:
 						self.tiles[self.selection_name] = tuple(self.selection.copy())
+						print(self.tiles)
 						self.selection = pg.Rect(0, 0, 0, 0)
 						self.selection_name = ""
 					else:
@@ -147,7 +197,7 @@ class Main:
 								0, self.sprite_sheet.get_width()
 							)
 							self.selection.y = pg.math.clamp(
-								(event.pos[1] - self.sidebar.centery - self.sprite_sheet_offset.y) / self.sprite_sheet_zoom,
+								(event.pos[1] - self.sidebar.centery + self.sprite_sheet_offset.y) / self.sprite_sheet_zoom,
 								0, self.sprite_sheet.get_height()
 							)
 							self.selection.w = 0
@@ -177,13 +227,22 @@ class Main:
 								0, self.sprite_sheet.get_width()
 							)
 						self.selection.h = pg.math.clamp(
-								(event.pos[1]-self.sidebar.centery-self.sprite_sheet_offset.y)/self.sprite_sheet_zoom-self.selection.y+1,
+								(event.pos[1] - self.sidebar.centery + self.sprite_sheet_offset.y) / self.sprite_sheet_zoom-self.selection.y+1,
 								0, self.sprite_sheet.get_height()
 							)
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
 						self.offset += pg.Vector2(event.rel) * self.mouse_sensitivity / self.zoom
+					elif event.buttons[0]:
+						if self.selected_tile is not None:
+							bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
+							bold_y = self.offset[1] * self.zoom - self.tile_size[1]
+							pos = (
+								int((event.pos[0] - bold_x) // (self.tile_size[0] * self.zoom)),
+								int((event.pos[1] - bold_y) // (self.tile_size[1] * self.zoom))
+							)
+							self.grid[pos] = self.selected_tile
 				elif self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
 				                                top=self.sidebar.centery).collidepoint(event.pos[0], event.pos[1]):
 					if event.buttons[1]:
