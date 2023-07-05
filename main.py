@@ -32,7 +32,7 @@ class Main:
 		self.tiles = {}
 		self.grid = {}
 		try:
-			file = filedialog.askopenfile(filetypes=[('image', '*.png'), ('image', '*.jpg'), ('save', '*.world')])
+			file = filedialog.askopenfile(filetypes=[('image/world', '*.png'), ('image/world', '*.jpg'), ('image/world', '*.world')])
 			if file.name.split('.')[-1].lower() != 'world':
 				self.sprite_sheet = pg.image.load(file.name).convert_alpha()
 				self.sprite_sheet_path = file.name
@@ -60,7 +60,7 @@ class Main:
 	def load(self):
 		if self.destination is None:
 			if self.path is None:
-				self.destination = filedialog.askopenfile('a+', defaultextension='.world')
+				self.destination = filedialog.askopenfile('r', defaultextension='.world')
 				self.path = self.destination.name
 			else:
 				self.destination = open(self.path)
@@ -68,7 +68,6 @@ class Main:
 		self.sprite_sheet_path = data['img']
 		self.sprite_sheet = pg.image.load(self.sprite_sheet_path).convert_alpha()
 		self.tiles = {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in data['data'].items()}
-		print(self.tiles)
 		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
 		self.destination.close()
 		self.destination = None
@@ -173,6 +172,10 @@ class Main:
 					self.tile_size /= 2
 				elif event.mod & KMOD_CTRL and event.key == K_s:
 					self.save()
+				elif event.mod & KMOD_CTRL and event.key == K_o:
+					self.path = None
+					self.destination = None
+					self.load()
 				elif self.save_selection != (0, 0, 0, 0):
 					if event.key == K_ESCAPE:
 						self.selection = pg.Rect(0, 0, 0, 0)
