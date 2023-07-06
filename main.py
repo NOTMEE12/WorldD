@@ -131,7 +131,7 @@ class Main:
 			tiles.blit(text, (idx % 7 * 69+5+32-text.get_width()/2, idx//7*109+5+64+self.scroll))
 		self.display.blit(tiles, (0, 0))
 		tile_size = self.header.render(f'{self.tile_size[0]}x{self.tile_size[1]}', True, (200, 200, 200))
-		self.display.blit(tile_size, (rect.centerx-tile_size.get_width()/2, rect.bottom + 75))
+		self.display.blit(tile_size, (rect.centerx-tile_size.get_width()/2, rect.bottom + 100))
 		pg.display.flip()
 		self.clock.tick(self.FPS)
 	
@@ -158,8 +158,7 @@ class Main:
 		self.destination = None
 			
 	def eventHandler(self):
-		self.events = pg.event.get()
-		for event in self.events:
+		for event in pg.event.get():
 			if event.type == QUIT:
 				pg.quit()
 				return 1
@@ -264,8 +263,23 @@ class Main:
 					self.zoom = pg.math.clamp(self.zoom, 0.75, 5)
 				else:
 					self.sprite_sheet_zoom += event.y * self.scroll_sensitivity
-					self.sprite_sheet_zoom = pg.math.clamp(self.sprite_sheet_zoom, 1, 15)
-	
+					if self.sprite_sheet_zoom < 1 or self.sprite_sheet_zoom > 15:
+						self.sprite_sheet_zoom = self.sprite_sheet_zoom = pg.math.clamp(self.sprite_sheet_zoom, 1, 15)
+					else:
+						self.sprite_sheet_offset += pg.Vector2(
+							((self.sprite_sheet.get_width() * self.sprite_sheet_zoom - self.sprite_sheet.get_width()) / (self.tile_size[0] * self.sprite_sheet_zoom)) * event.y,
+							((self.sprite_sheet.get_height() * self.sprite_sheet_zoom - self.sprite_sheet.get_height()) / (self.tile_size[1] * self.sprite_sheet_zoom)) * event.y
+						)
+						self.sprite_sheet_offset.x = pg.math.clamp(self.sprite_sheet_offset.x, 0,
+						                                           self.sprite_sheet_zoom *
+						                                           self.sprite_sheet.get_width() -
+						                                           self.sprite_sheet.get_width())
+						self.sprite_sheet_offset.y = pg.math.clamp(self.sprite_sheet_offset.y, 0,
+						                                           self.sprite_sheet_zoom *
+						                                           self.sprite_sheet.get_height() -
+						                                           self.sprite_sheet.get_height())
+					
+					
 	def run(self):
 		while True:
 			self.refresh()
