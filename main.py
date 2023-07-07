@@ -1,3 +1,4 @@
+import pygame
 import pygame as pg
 from pygame.locals import *
 import tkinter
@@ -8,7 +9,7 @@ import sys
 
 class Main:
 	
-	def __init__(self, tile_size=(32, 32)):
+	def __init__(self):
 		pg.init()
 		tkinter.Tk().withdraw()
 		"""===[ WINDOW ]==="""
@@ -17,9 +18,45 @@ class Main:
 		pg.display.toggle_fullscreen()
 		self.clock = pg.Clock()
 		self.FPS = -1
+		self.events = ()
+		"""===[ CUSTOMIZABLE ]==="""
+		self.projects = [Project(self, (32, 32))]
+	
+	def refresh(self):
+		self.display.fill(0)
+		for project in self.projects:
+			project.refresh()
+		pg.display.flip()
+		self.clock.tick(self.FPS)
+	
+	def eventHandler(self):
+		self.events = pg.event.get()
+		if any([(event.type == QUIT) for event in self.events]):
+			pygame.quit()
+			exit()
+		for project in self.projects:
+			project.eventHandler()
+		
+	def run(self):
+		while True:
+			self.refresh()
+			if self.eventHandler():
+				return 1
+			pg.display.set_caption("{:.2f}".format(self.clock.get_fps()))
+
+
+class Project:
+
+	def __init__(self, main, tile_size):
+		"""creates new project"""
+		
+		self.main = main
+		
+		"""===[ WINDOW ]==="""
+		self.win = main.win
+		self.display = main.display
 		"""===[ GUI ]==="""
 		self.offset = pg.Vector2(tile_size[0] * 2, tile_size[1] * 2)
-		self.events = None
 		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
 		self.text = pg.font.SysFont('Arial', 30, False, False)
 		self.header = pg.font.SysFont('Arial', 35, True, False)
@@ -32,7 +69,8 @@ class Main:
 		self.tiles = {}
 		self.grid = {}
 		try:
-			file = filedialog.askopenfile(filetypes=[('image/world', '*.png'), ('image/world', '*.jpg'), ('image/world', '*.world')])
+			file = filedialog.askopenfile(
+				filetypes=[('image/world', '*.png'), ('image/world', '*.jpg'), ('image/world', '*.world')])
 			if file.name.split('.')[-1].lower() != 'world':
 				self.sprite_sheet = pg.image.load(file.name).convert_alpha()
 				self.sprite_sheet_path = file.name
@@ -52,11 +90,9 @@ class Main:
 		self.selection = pg.Rect(0, 0, 0, 0)
 		self.tile_size = pg.Vector2(tile_size)
 		self.zoom = 1
-		self.mouse_sensitivity = 1
-		self.scroll_sensitivity = .1
 		self.sprite_sheet_zoom = 1
 		self.sprite_sheet_offset = pg.Vector2(0, 0)
-	
+
 	def load(self):
 		if self.destination is None:
 			if self.path is None:
@@ -69,6 +105,28 @@ class Main:
 		self.sprite_sheet = pg.image.load(self.sprite_sheet_path).convert_alpha()
 		self.tiles = {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in data['data'].items()}
 		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+		self.destination.close()
+		self.destination = None
+		
+	def save(self):
+		if self.destination is None:
+			if self.path is None:
+				self.destination = filedialog.asksaveasfile('a+', defaultextension='.world')
+				self.path = self.destination.name
+			else:
+				self.destination = open(self.path, 'a+')
+			print(self.destination.name)
+		self.destination.seek(0)
+		self.destination.truncate(0)
+		self.destination.write(
+			json.dumps(
+				{
+					'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
+					'data': {f"{pos}": tile for tile, pos in self.tiles.items()},
+					'img': self.sprite_sheet_path
+				}
+			)
+		)
 		self.destination.close()
 		self.destination = None
 	
@@ -132,37 +190,10 @@ class Main:
 		self.display.blit(tiles, (0, 0))
 		tile_size = self.header.render(f'{self.tile_size[0]}x{self.tile_size[1]}', True, (200, 200, 200))
 		self.display.blit(tile_size, (rect.centerx-tile_size.get_width()/2, rect.bottom + 100))
-		pg.display.flip()
-		self.clock.tick(self.FPS)
 	
-	def save(self):
-		if self.destination is None:
-			if self.path is None:
-				self.destination = filedialog.asksaveasfile('a+', defaultextension='.world')
-				self.path = self.destination.name
-			else:
-				self.destination = open(self.path, 'a+')
-			print(self.destination.name)
-		self.destination.seek(0)
-		self.destination.truncate(0)
-		self.destination.write(
-			json.dumps(
-				{
-					'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
-					'data': {f"{pos}": tile for tile, pos in self.tiles.items()},
-					'img': self.sprite_sheet_path
-				}
-			)
-		)
-		self.destination.close()
-		self.destination = None
-			
 	def eventHandler(self):
-		for event in pg.event.get():
-			if event.type == QUIT:
-				pg.quit()
-				return 1
-			elif event.type == KEYDOWN:
+		for event in self.main.events:
+			if event.type == KEYDOWN:
 				if event.key == K_F11:
 					pg.display.toggle_fullscreen()
 				elif event.key == K_UP:
@@ -235,7 +266,7 @@ class Main:
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
-						self.offset += pg.Vector2(event.rel) * self.mouse_sensitivity / self.zoom
+						self.offset += pg.Vector2(event.rel) * self.main.mouse_sensitivity / self.zoom
 					elif event.buttons[0]:
 						if self.selected_tile is not None:
 							bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
@@ -248,7 +279,7 @@ class Main:
 				elif self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
 				                                top=self.sidebar.centery).collidepoint(event.pos[0], event.pos[1]):
 					if event.buttons[1]:
-						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.mouse_sensitivity
+						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.main.mouse_sensitivity
 						self.sprite_sheet_offset.x = pg.math.clamp(self.sprite_sheet_offset.x, 0,
 						                                           self.sprite_sheet_zoom *
 						                                           self.sprite_sheet.get_width() -
@@ -259,10 +290,10 @@ class Main:
 						                                           self.sprite_sheet.get_height())
 			elif event.type == MOUSEWHEEL:
 				if pg.mouse.get_pos()[0] > self.sidebar.right:
-					self.zoom += event.y * self.scroll_sensitivity
+					self.zoom += event.y * self.main.scroll_sensitivity
 					self.zoom = pg.math.clamp(self.zoom, 0.75, 5)
 				else:
-					self.sprite_sheet_zoom += event.y * self.scroll_sensitivity
+					self.sprite_sheet_zoom += event.y * self.main.scroll_sensitivity
 					if self.sprite_sheet_zoom < 1 or self.sprite_sheet_zoom > 15:
 						self.sprite_sheet_zoom = self.sprite_sheet_zoom = pg.math.clamp(self.sprite_sheet_zoom, 1, 15)
 					else:
@@ -278,16 +309,8 @@ class Main:
 						                                           self.sprite_sheet_zoom *
 						                                           self.sprite_sheet.get_height() -
 						                                           self.sprite_sheet.get_height())
-					
-					
-	def run(self):
-		while True:
-			self.refresh()
-			if self.eventHandler():
-				return 1
-			pg.display.set_caption("{:.2f}".format(self.clock.get_fps()))
-
+	
 
 if __name__ == '__main__':
-	main = Main((32, 32))
+	main = Main()
 	main.run()
