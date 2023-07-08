@@ -1,10 +1,10 @@
-import pygame
-import pygame as pg
-from pygame.locals import *
+import os
+import sys
+import json
 import tkinter
 from tkinter import filedialog
-import json
-import sys
+import pygame as pg
+from pygame.locals import *
 
 
 class Main:
@@ -15,27 +15,60 @@ class Main:
 		"""===[ WINDOW ]==="""
 		self.win = pg.Vector2(pg.display.get_desktop_sizes()[0])
 		self.display = pg.display.set_mode(self.win, RESIZABLE)
-		pg.display.toggle_fullscreen()
 		self.clock = pg.Clock()
 		self.FPS = -1
 		self.events = ()
+		self.scroll_sensitivity = 0.25
+		self.mouse_sensitivity = 1
+		"""====[ RECENT ]===="""
+		self.path = pg.system.get_pref_path('NotMEE12', 'WorldD')
+		if not os.path.exists(self.path + '\\recent.txt'):
+			self.recent = []
+		else:
+			with open(self.path + '\\recent.txt') as recent:
+				self.recent = recent.read().split('\n')
 		"""===[ CUSTOMIZABLE ]==="""
-		self.projects = [Project(self, (32, 32))]
+		self.projects: list[Project | Welcome] = [Welcome(self)]
+		self.popups = []
 	
 	def refresh(self):
 		self.display.fill(0)
 		for project in self.projects:
-			project.refresh()
+			project.render()
+		for popup in self.popups:
+			popup.render()
+		pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-50, 0, 50, 50), border_radius=15, width=5)
+		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-45, 5), (self.display.get_width()-5, 45), 5)
+		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-45, 45), (self.display.get_width()-5, 5), 5)
 		pg.display.flip()
 		self.clock.tick(self.FPS)
 	
+	def exit(self):
+		pg.quit()
+		with open(self.path + '\\recent.txt', 'a') as recent:
+			recent.truncate(0)
+			recent.writelines(self.recent)
+		sys.exit()
+	
 	def eventHandler(self):
 		self.events = pg.event.get()
-		if any([(event.type == QUIT) for event in self.events]):
-			pygame.quit()
-			exit()
-		for project in self.projects:
-			project.eventHandler()
+		for event in self.events:
+			if event.type == QUIT:
+				self.exit()
+			if event.type == DROPFILE:
+				new_project = Project(self, (32, 32))
+				new_project.load(event.file)
+				self.projects.append(new_project)
+			if event.type == MOUSEBUTTONDOWN:
+				if event.button == 1:
+					if pg.Rect(self.display.get_width()-50, 0, 50, 50).collidepoint(event.pos):
+						self.exit()
+		if not self.popups:
+			for project in self.projects:
+				project.eventHandler()
+		else:
+			for popup in self.popups:
+				popup.eventHandler()
 		
 	def run(self):
 		while True:
@@ -47,7 +80,7 @@ class Main:
 
 class Project:
 
-	def __init__(self, main, tile_size):
+	def __init__(self, main: Main, tile_size):
 		"""creates new project"""
 		
 		self.main = main
@@ -68,18 +101,17 @@ class Project:
 		self.sprite_sheet_path = None
 		self.tiles = {}
 		self.grid = {}
-		try:
-			file = filedialog.askopenfile(
-				filetypes=[('image/world', '*.png'), ('image/world', '*.jpg'), ('image/world', '*.world')])
-			if file.name.split('.')[-1].lower() != 'world':
-				self.sprite_sheet = pg.image.load(file.name).convert_alpha()
-				self.sprite_sheet_path = file.name
-			else:
-				self.path = file.name
-				self.load()
-			file.close()
-		except TypeError:
-			sys.exit()
+		file = filedialog.askopenfile(
+			filetypes=[('image/world', '*.png'), ('image/world', '*.jpg'), ('image/world', '*.world')])
+		if file is None:
+			raise IOError
+		if file.name.split('.')[-1].lower() != 'world':
+			self.sprite_sheet = pg.image.load(file.name).convert_alpha()
+			self.sprite_sheet_path = file.name
+		else:
+			self.path = file.name
+			self.load()
+		file.close()
 		self.selected_tile = None
 		self.scroll = 0
 		self.sprite_sheet_grid_color = "white"
@@ -93,7 +125,9 @@ class Project:
 		self.sprite_sheet_zoom = 1
 		self.sprite_sheet_offset = pg.Vector2(0, 0)
 
-	def load(self):
+	def load(self, path=None):
+		if path is not None:
+			self.path = path
 		if self.destination is None:
 			if self.path is None:
 				self.destination = filedialog.askopenfile('r', defaultextension='.world')
@@ -129,8 +163,9 @@ class Project:
 		)
 		self.destination.close()
 		self.destination = None
+		self.main.recent.append(self.path)
 	
-	def refresh(self):
+	def render(self):
 		self.display.fill(0)
 		bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
 		bold_y = self.offset[1] * self.zoom - self.tile_size[1]
@@ -295,22 +330,104 @@ class Project:
 				else:
 					self.sprite_sheet_zoom += event.y * self.main.scroll_sensitivity
 					if self.sprite_sheet_zoom < 1 or self.sprite_sheet_zoom > 15:
-						self.sprite_sheet_zoom = self.sprite_sheet_zoom = pg.math.clamp(self.sprite_sheet_zoom, 1, 15)
-					else:
-						self.sprite_sheet_offset += pg.Vector2(
-							((self.sprite_sheet.get_width() * self.sprite_sheet_zoom - self.sprite_sheet.get_width()) / (self.tile_size[0] * self.sprite_sheet_zoom)) * event.y,
-							((self.sprite_sheet.get_height() * self.sprite_sheet_zoom - self.sprite_sheet.get_height()) / (self.tile_size[1] * self.sprite_sheet_zoom)) * event.y
-						)
-						self.sprite_sheet_offset.x = pg.math.clamp(self.sprite_sheet_offset.x, 0,
-						                                           self.sprite_sheet_zoom *
-						                                           self.sprite_sheet.get_width() -
-						                                           self.sprite_sheet.get_width())
-						self.sprite_sheet_offset.y = pg.math.clamp(self.sprite_sheet_offset.y, 0,
-						                                           self.sprite_sheet_zoom *
-						                                           self.sprite_sheet.get_height() -
-						                                           self.sprite_sheet.get_height())
+						self.sprite_sheet_zoom = pg.math.clamp(self.sprite_sheet_zoom, 1, 15)
+
+
+class Welcome:
 	
+	def __init__(self, main: Main):
+		self.main = main
+		self.display = main.display
+		"""====[ TEXT ]===="""
+		self.header = pg.font.SysFont('Arial', 100, True, False)
+		self.text = pg.font.SysFont('Arial', 40, False, False)
+		self.text_und = pg.font.SysFont('Arial', 40, False, False)
+		self.text_und.set_underline(True)
+		
+		self.texts = {
+			'#Welcome': self.header.render('Welcome', True, (200, 200, 200)),
+			'New project': self.text.render('New project', True, (200, 200, 200)),
+			'Load project': self.text.render('Load project', True, (200, 200, 200)),
+			'__New_project__': self.text_und.render('New project', True, (200, 200, 200)),
+			'__Load_project__': self.text_und.render('Load project', True, (200, 200, 200))
+		}
+	
+	def render(self):
+		""""""  # empty doc string
+		"""===[ CONFIG ]==="""
+		mouse_pos = pg.mouse.get_pos()
+		dis_rect = self.display.get_rect()
+		
+		"""===[ WELCOME ]==="""
+		self.display.fill(0)
+		self.display.blit(self.texts['#Welcome'], self.texts['#Welcome'].get_rect(center=(dis_rect.w/4, dis_rect.h/6)))
+		
+		"""===[ PROJECTS ]==="""
+		New = self.texts['New project']
+		New_rect = New.get_rect(centerx=dis_rect.w/4, top=dis_rect.h/3)
+		Load = self.texts['Load project']
+		Load_rect = Load.get_rect(centerx=dis_rect.w/4, top=dis_rect.h/3+New_rect.height*1.5)
+		if New_rect.collidepoint(mouse_pos):
+			New = self.texts['__New_project__']
+		if Load_rect.collidepoint(mouse_pos):
+			Load = self.texts['__Load_project__']
+		self.display.blit(New, New_rect.topleft)
+		self.display.blit(Load, Load_rect.topleft)
+		
+		"""====[ RECENT ]===="""
+		rect = pg.Rect(25, dis_rect.h/2, dis_rect.w/2-25, dis_rect.h/2)
+		pg.draw.rect(self.display, (20, 20, 20), rect)
+		self.display.blit(self.text.render('\n'.join(self.main.recent), True, (200, 200, 200)), rect.topleft)
+	
+	def eventHandler(self):
+		for event in self.main.events:
+			if event.type == MOUSEBUTTONDOWN:
+				if event.button == 1:
+					dis_rect = self.display.get_rect()
+					New_rect = self.texts['New project'].get_rect(centerx=dis_rect.w / 4, top=dis_rect.h / 3)
+					Load_rect = self.texts['Load project'].get_rect(
+						centerx=dis_rect.w / 4, top=dis_rect.h / 3 + New_rect.height * 1.5
+					)
+					if New_rect.collidepoint(event.pos):
+						# self.main.popups.append(Popup(self.main, self.display, 'select type of world', ('isometric', '2d or 2.5d')))
+						try:
+							self.main.projects.append(Project(self.main, (32, 32)))
+						except IOError:
+							pass
+
+
+class Popup:
+	
+	def __init__(self, main, display, question, options):
+		self.main = main
+		self.display = display
+		self.header = pg.font.SysFont('Arial', 60, True, False)
+		self.text = pg.font.SysFont('Arial', 30, False, False)
+		self.text_hover = pg.font.SysFont('Arial', 30, True, False)
+		
+		self.question = self.header.render(question, True, (200, 200, 200))
+		self.options = {option: self.text.render(option, True, (200, 200, 200)) for option in options}
+		self.options_hover = {option: self.text_hover.render(option, True, (200, 200, 200)) for option in options}
+		self.answer = None
+		self.pos = pg.Vector2((self.display.get_width()-self.question.get_width())/2-100, self.display.get_height()/3)
+	
+	def render(self):
+		rect = pg.Rect(self.pos, (self.question.get_width()+200, len(self.options.keys())*150))
+		question_rect = self.question.get_rect(centerx=rect.centerx, top=rect.top)
+		pg.draw.rect(self.display, (10, 10, 10), rect, border_radius=15)
+		pg.draw.rect(self.display, (100, 100, 100), rect, border_radius=15, width=2)
+		pg.draw.line(self.display, (100, 100, 100), (rect.x+25, question_rect.bottom+10), (rect.right-25, question_rect.bottom+10))
+		self.display.blit(self.question, question_rect)
+		for en, (name, texture) in enumerate(self.options.items()):
+			rect = pg.Rect((rect.centerx-texture.get_width()/2, rect.top+rect.h/(len(self.options.keys())+1*en)), texture.get_size())
+			if rect.collidepoint(pg.mouse.get_pos()):
+				self.display.blit(self.options_hover[name], rect)
+			else:
+				self.display.blit(texture, rect)
+
+	def eventHandler(self):
+		pass
+
 
 if __name__ == '__main__':
-	main = Main()
-	main.run()
+	Main().run()
