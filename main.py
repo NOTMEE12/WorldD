@@ -5,6 +5,15 @@ import tkinter
 from tkinter import filedialog
 import pygame as pg
 from pygame.locals import *
+import tomllib
+
+
+class Options:
+	
+	def __init__(self, file):
+		with open(file, 'rb') as file:
+			options = tomllib.load(file)
+			self.SHOW_EXIT = options['SHOW-EXIT']
 
 
 class Main:
@@ -20,27 +29,29 @@ class Main:
 		self.events = ()
 		self.scroll_sensitivity = 0.25
 		self.mouse_sensitivity = 1
-		"""====[ RECENT ]===="""
+		"""====[ PROJECTS ]===="""
 		self.path = pg.system.get_pref_path('NotMEE12', 'WorldD')
 		if not os.path.exists(self.path + '\\recent.txt'):
 			self.recent = []
 		else:
 			with open(self.path + '\\recent.txt') as recent:
 				self.recent = list(recent.read().split('\n'))
-		"""===[ CUSTOMIZABLE ]==="""
 		self.projects: list[Project | Welcome] = [Welcome(self)]
 		self.popups = []
 		self.selected = 0
-	
+		
+		self.options = Options('\\options.toml')
+
 	def refresh(self):
 		self.display.fill(0)
 		pg.draw.rect(self.display, (120, 120, 120), pg.Rect(0, 0, self.display.get_width(), 50))
 		self.projects[self.selected].render()
 		for popup in self.popups:
 			popup.render()
-		pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
-		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 5), (self.display.get_width()-5, 20), 5)
-		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 20), (self.display.get_width()-5, 5), 5)
+		if self.options.SHOW_EXIT:
+			pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
+			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 5), (self.display.get_width()-5, 20), 5)
+			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 20), (self.display.get_width()-5, 5), 5)
 		pg.display.flip()
 		self.clock.tick(self.FPS)
 	
