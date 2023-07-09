@@ -37,9 +37,9 @@ class Main:
 			project.render()
 		for popup in self.popups:
 			popup.render()
-		pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-50, 0, 50, 50), border_radius=15, width=5)
-		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-45, 5), (self.display.get_width()-5, 45), 5)
-		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-45, 45), (self.display.get_width()-5, 5), 5)
+		pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
+		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 5), (self.display.get_width()-5, 20), 5)
+		pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 20), (self.display.get_width()-5, 5), 5)
 		pg.display.flip()
 		self.clock.tick(self.FPS)
 	
@@ -80,7 +80,7 @@ class Main:
 
 class Project:
 
-	def __init__(self, main: Main, tile_size):
+	def __init__(self, main: Main, tile_size, load=False):
 		"""creates new project"""
 		
 		self.main = main
@@ -101,8 +101,10 @@ class Project:
 		self.sprite_sheet_path = None
 		self.tiles = {}
 		self.grid = {}
-		file = filedialog.askopenfile(
-			filetypes=[('image/world', '*.png'), ('image/world', '*.jpg'), ('image/world', '*.world')])
+		filetypes = [('image', '*.png'), ('image', '*.jpg')]
+		if load:
+			filetypes = [('world', '*.world')]
+		file = filedialog.askopenfile(filetypes=filetypes)
 		if file is None:
 			raise IOError
 		if file.name.split('.')[-1].lower() != 'world':
@@ -376,9 +378,14 @@ class Welcome:
 		
 		"""====[ RECENT ]===="""
 		rect = pg.Rect(25, dis_rect.h/2, dis_rect.w/2-25, dis_rect.h/2)
-		pg.draw.rect(self.display, (20, 20, 20), rect)
-		self.display.blit(self.text.render('\n'.join(self.main.recent), True, (200, 200, 200)), rect.topleft)
-	
+		pg.draw.rect(self.display, (20, 20, 20), rect, border_radius=15)
+		for row, text in enumerate(self.main.recent):
+			pos = (rect.left + self.text.size('  ')[0], rect.top+row*self.text.get_height())
+			txt = self.text.render(text, True, (150, 150, 150))
+			if txt.get_rect(topleft=pos).collidepoint(mouse_pos):
+				txt = self.text_und.render(text, True, (150, 150, 150))
+			self.display.blit(txt, pos)
+
 	def eventHandler(self):
 		for event in self.main.events:
 			if event.type == MOUSEBUTTONDOWN:
@@ -392,6 +399,11 @@ class Welcome:
 						# self.main.popups.append(Popup(self.main, self.display, 'select type of world', ('isometric', '2d or 2.5d')))
 						try:
 							self.main.projects.append(Project(self.main, (32, 32)))
+						except IOError:
+							pass
+					if Load_rect:
+						try:
+							self.main.projects.append(Project(self.main, (32, 32), load=True))
 						except IOError:
 							pass
 
