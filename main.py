@@ -193,11 +193,16 @@ class Project:
 			y = idx * self.tile_size[1] * self.zoom + self.offset[1] % self.tile_size[1] * self.zoom - self.tile_size[0]
 			pg.draw.line(self.display, self.grid_color, (x2, y), (self.display.get_width(), y), 1)
 		# ===[ GRID ]===
-		for pos, name in self.grid.items():
+		for pos, name in self.grid.copy().items():
+			try:
+				tile = self.tiles[name]
+			except KeyError:
+				del self.grid[pos]
+				continue
 			size = self.tile_size * self.zoom
 			x = bold_x + size[0] * pos[0]
 			y = bold_y + size[1] * pos[1]
-			self.display.blit(pg.transform.scale(self.sprite_sheet.subsurface(self.tiles[name]), size), (x, y))
+			self.display.blit(pg.transform.scale(self.sprite_sheet.subsurface(tile), size), (x, y))
 		# ===[ BOLD LINES ]===
 		pg.draw.line(self.display, "white", (bold_x, 0), (bold_x, self.display.get_height()), 5)
 		pg.draw.line(self.display, "white", (0, bold_y), (self.display.get_width(), bold_y), 5)
@@ -256,6 +261,9 @@ class Project:
 					self.path = None
 					self.destination = None
 					self.load()
+				elif event.mod & KMOD_CTRL and event.key == K_DELETE:
+					del self.tiles[self.selected_tile]
+					self.selected_tile = None
 				elif self.save_selection != (0, 0, 0, 0):
 					if event.key == K_ESCAPE:
 						self.selection = pg.Rect(0, 0, 0, 0)
