@@ -1,1 +1,15 @@
-SHOW-EXIT = true
+
+# #====[ GUI ]====# #
+SHOW-EXIT           = true
+FPS                 = 120
+
+
+# #====[ CONTROLS ]====# #
+MOUSE-SENSITIVITY   = 1
+SCROLL-SENSITIVITY  = 0.25
+
+
+
+# #====[ FONTS ]====# #
+HEADER-FONT         = 'Arial'
+TEXT-FONT           = 'Arial'

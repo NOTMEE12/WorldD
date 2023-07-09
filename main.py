@@ -13,7 +13,13 @@ class Options:
 	def __init__(self, file):
 		with open(file, 'rb') as file:
 			options = tomllib.load(file)
+			"""====[ GUI ]===="""
 			self.SHOW_EXIT = options['SHOW-EXIT']
+			self.HEADER_FONT = options['HEADER-FONT']
+			self.TEXT_FONT = options['TEXT-FONT']
+			self.SCROLL_SENSITIVITY = options['SCROLL-SENSITIVITY']
+			self.MOUSE_SENSITIVITY = options['MOUSE-SENSITIVITY']
+			self.FPS = options['FPS']
 
 
 class Main:
@@ -21,14 +27,12 @@ class Main:
 	def __init__(self):
 		pg.init()
 		tkinter.Tk().withdraw()
-		"""===[ WINDOW ]==="""
+		"""====[ WINDOW ]===="""
 		self.win = pg.Vector2(pg.display.get_desktop_sizes()[0])
 		self.display = pg.display.set_mode(self.win, RESIZABLE)
 		self.clock = pg.Clock()
-		self.FPS = -1
 		self.events = ()
-		self.scroll_sensitivity = 0.25
-		self.mouse_sensitivity = 1
+		self.options = Options('options.toml')
 		"""====[ PROJECTS ]===="""
 		self.path = pg.system.get_pref_path('NotMEE12', 'WorldD')
 		if not os.path.exists(self.path + '\\recent.txt'):
@@ -39,8 +43,6 @@ class Main:
 		self.projects: list[Project | Welcome] = [Welcome(self)]
 		self.popups = []
 		self.selected = 0
-		
-		self.options = Options('\\options.toml')
 
 	def refresh(self):
 		self.display.fill(0)
@@ -53,7 +55,7 @@ class Main:
 			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 5), (self.display.get_width()-5, 20), 5)
 			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 20), (self.display.get_width()-5, 5), 5)
 		pg.display.flip()
-		self.clock.tick(self.FPS)
+		self.clock.tick(self.options.FPS)
 	
 	def exit(self):
 		pg.quit()
@@ -65,7 +67,7 @@ class Main:
 	def eventHandler(self):
 		self.events = pg.event.get()
 		for event in self.events:
-			if event.type == QUIT:
+			if event.type == QUIT or (event.type == KEYDOWN and event.mod & KMOD_SHIFT and event.key == K_ESCAPE):
 				self.exit()
 			if event.type == DROPFILE:
 				new_project = Project(self, (32, 32))
@@ -97,17 +99,17 @@ class Project:
 		
 		self.main = main
 		
-		"""===[ WINDOW ]==="""
+		"""====[ WINDOW ]===="""
 		self.win = main.win
 		self.display = main.display
-		"""===[ GUI ]==="""
+		"""====[ GUI ]===="""
 		self.offset = pg.Vector2(tile_size[0] * 2, tile_size[1] * 2)
 		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
-		self.text = pg.font.SysFont('Arial', 30, False, False)
-		self.header = pg.font.SysFont('Arial', 35, True, False)
+		self.text = pg.font.SysFont(self.main.options.TEXT_FONT, 30, False, False)
+		self.header = pg.font.SysFont(self.main.options.HEADER_FONT, 35, True, False)
 		self.save_selection = self.header.render("Save selection? (name/ESC)", True, (250, 250, 250))
 		self.sprite_sheet = None
-		"""===[ CUSTOMIZABLE ]==="""
+		"""====[ CUSTOMIZABLE ]===="""
 		self.destination = None
 		self.path = None
 		self.sprite_sheet_path = None
@@ -218,7 +220,7 @@ class Project:
 		pg.draw.line(self.display, "white", (bold_x, 0), (bold_x, self.display.get_height()), 5)
 		pg.draw.line(self.display, "white", (0, bold_y), (self.display.get_width(), bold_y), 5)
 		pg.draw.circle(self.display, "white", (bold_x, bold_y), 15)
-		"""===[ SIDEBAR ]==="""
+		"""====[ SIDEBAR ]===="""
 		rect = self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
 		                                  top=self.sidebar.centery)
 		pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
@@ -335,7 +337,7 @@ class Project:
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
-						self.offset += pg.Vector2(event.rel) * self.main.mouse_sensitivity / self.zoom
+						self.offset += pg.Vector2(event.rel) * self.main.options.MOUSE_SENSITIVITY / self.zoom
 					elif event.buttons[0]:
 						if self.selected_tile is not None:
 							bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
@@ -348,7 +350,7 @@ class Project:
 				elif self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
 				                                top=self.sidebar.centery).collidepoint(event.pos[0], event.pos[1]):
 					if event.buttons[1]:
-						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.main.mouse_sensitivity
+						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.main.options.MOUSE_SENSITIVITY
 						self.sprite_sheet_offset.x = pg.math.clamp(self.sprite_sheet_offset.x, 0,
 						                                           self.sprite_sheet_zoom *
 						                                           self.sprite_sheet.get_width() -
@@ -359,10 +361,10 @@ class Project:
 						                                           self.sprite_sheet.get_height())
 			elif event.type == MOUSEWHEEL:
 				if pg.mouse.get_pos()[0] > self.sidebar.right:
-					self.zoom += event.y * self.main.scroll_sensitivity
+					self.zoom += event.y * self.main.options.SCROLL_SENSITIVITY
 					self.zoom = pg.math.clamp(self.zoom, 0.75, 5)
 				else:
-					self.sprite_sheet_zoom += event.y * self.main.scroll_sensitivity
+					self.sprite_sheet_zoom += event.y * self.main.options.SCROLL_SENSITIVITY
 					if self.sprite_sheet_zoom < 1 or self.sprite_sheet_zoom > 15:
 						self.sprite_sheet_zoom = pg.math.clamp(self.sprite_sheet_zoom, 1, 15)
 
@@ -373,9 +375,9 @@ class Welcome:
 		self.main = main
 		self.display = main.display
 		"""====[ TEXT ]===="""
-		self.header = pg.font.SysFont('Arial', 100, True, False)
-		self.text = pg.font.SysFont('Arial', 40, False, False)
-		self.text_und = pg.font.SysFont('Arial', 40, False, False)
+		self.header = pg.font.SysFont(self.main.options.HEADER_FONT, 100, True, False)
+		self.text = pg.font.SysFont(self.main.options.TEXT_FONT, 40, False, False)
+		self.text_und = pg.font.SysFont(self.main.options.TEXT_FONT, 40, False, False)
 		self.text_und.set_underline(True)
 		
 		self.texts = {
@@ -388,15 +390,15 @@ class Welcome:
 	
 	def render(self):
 		""""""  # empty doc string
-		"""===[ CONFIG ]==="""
+		"""====[ CONFIG ]===="""
 		mouse_pos = pg.mouse.get_pos()
 		dis_rect = self.display.get_rect()
 		
-		"""===[ WELCOME ]==="""
+		"""====[ WELCOME ]===="""
 		self.display.fill(0)
 		self.display.blit(self.texts['#Welcome'], self.texts['#Welcome'].get_rect(center=(dis_rect.w/4, dis_rect.h/6)))
 		
-		"""===[ PROJECTS ]==="""
+		"""====[ PROJECTS ]===="""
 		New = self.texts['New project']
 		New_rect = New.get_rect(centerx=dis_rect.w/4, top=dis_rect.h/3)
 		Load = self.texts['Load project']
@@ -458,9 +460,9 @@ class Popup:
 	def __init__(self, main, display, question, options):
 		self.main = main
 		self.display = display
-		self.header = pg.font.SysFont('Arial', 60, True, False)
-		self.text = pg.font.SysFont('Arial', 30, False, False)
-		self.text_hover = pg.font.SysFont('Arial', 30, True, False)
+		self.header = pg.font.SysFont(self.main.options.HEADER_FONT, 60, True, False)
+		self.text = pg.font.SysFont(self.main.options.TEXT_FONT, 30, False, False)
+		self.text_hover = pg.font.SysFont(self.main.options.TEXT_FONT, 30, True, False)
 		
 		self.question = self.header.render(question, True, (200, 200, 200))
 		self.options = {option: self.text.render(option, True, (200, 200, 200)) for option in options}
