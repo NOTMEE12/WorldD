@@ -26,15 +26,16 @@ class Main:
 			self.recent = []
 		else:
 			with open(self.path + '\\recent.txt') as recent:
-				self.recent = recent.read().split('\n')
+				self.recent = list(recent.read().split('\n'))
 		"""===[ CUSTOMIZABLE ]==="""
 		self.projects: list[Project | Welcome] = [Welcome(self)]
 		self.popups = []
+		self.selected = 0
 	
 	def refresh(self):
 		self.display.fill(0)
-		for project in self.projects:
-			project.render()
+		pg.draw.rect(self.display, (120, 120, 120), pg.Rect(0, 0, self.display.get_width(), 50))
+		self.projects[self.selected].render()
 		for popup in self.popups:
 			popup.render()
 		pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
@@ -59,13 +60,13 @@ class Main:
 				new_project = Project(self, (32, 32))
 				new_project.load(event.file)
 				self.projects.append(new_project)
+				self.selected = len(self.projects)-1
 			if event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
 					if pg.Rect(self.display.get_width()-50, 0, 50, 50).collidepoint(event.pos):
 						self.exit()
 		if not self.popups:
-			for project in self.projects:
-				project.eventHandler()
+			self.projects[self.selected].eventHandler()
 		else:
 			for popup in self.popups:
 				popup.eventHandler()
@@ -80,7 +81,7 @@ class Main:
 
 class Project:
 
-	def __init__(self, main: Main, tile_size, load=False):
+	def __init__(self, main: Main, tile_size, load: str | bool = False):
 		"""creates new project"""
 		
 		self.main = main
@@ -102,18 +103,29 @@ class Project:
 		self.tiles = {}
 		self.grid = {}
 		filetypes = [('image', '*.png'), ('image', '*.jpg')]
-		if load:
-			filetypes = [('world', '*.world')]
-		file = filedialog.askopenfile(filetypes=filetypes)
-		if file is None:
-			raise IOError
-		if file.name.split('.')[-1].lower() != 'world':
-			self.sprite_sheet = pg.image.load(file.name).convert_alpha()
-			self.sprite_sheet_path = file.name
+		if type(load) is bool:
+			if load:
+				filetypes = [('world', '*.world')]
+			file = filedialog.askopenfile(filetypes=filetypes)
+			if file is None:
+				raise IOError
+			if file.name.split('.')[-1].lower() != 'world':
+				self.sprite_sheet = pg.image.load(file.name).convert_alpha()
+				self.sprite_sheet_path = file.name
+			else:
+				self.path = file.name
+				self.load()
+			file.close()
 		else:
-			self.path = file.name
-			self.load()
-		file.close()
+			file = open(load)
+			if file is None:
+				raise IOError
+			if file.name.split('.')[-1].lower() != 'world':
+				self.sprite_sheet = pg.image.load(file.name).convert_alpha()
+				self.sprite_sheet_path = file.name
+			else:
+				self.path = file.name
+				self.load()
 		self.selected_tile = None
 		self.scroll = 0
 		self.sprite_sheet_grid_color = "white"
@@ -165,7 +177,8 @@ class Project:
 		)
 		self.destination.close()
 		self.destination = None
-		self.main.recent.append(self.path)
+		if self.path not in self.main.recent:
+			self.main.recent.append(self.path)
 	
 	def render(self):
 		self.display.fill(0)
@@ -399,13 +412,26 @@ class Welcome:
 						# self.main.popups.append(Popup(self.main, self.display, 'select type of world', ('isometric', '2d or 2.5d')))
 						try:
 							self.main.projects.append(Project(self.main, (32, 32)))
+							self.main.selected = len(self.main.projects)-1
 						except IOError:
 							pass
-					if Load_rect:
+					elif Load_rect.collidepoint(event.pos):
 						try:
 							self.main.projects.append(Project(self.main, (32, 32), load=True))
+							self.main.selected = len(self.main.projects)-1
 						except IOError:
 							pass
+					else:
+						rect = pg.Rect(25, dis_rect.h / 2, dis_rect.w / 2 - 25, dis_rect.h / 2)
+						for row, text in enumerate(self.main.recent):
+							txt = self.text.render(text, True, (150, 150, 150))
+							txt = txt.get_rect(topleft=(rect.left + self.text.size('  ')[0], rect.top+row*self.text.get_height()))
+							if txt.collidepoint(event.pos):
+								try:
+									self.main.projects.append(Project(self.main, (32, 32), load=text))
+									self.main.selected = len(self.main.projects)-1
+								except IOError:
+									pass
 
 
 class Popup:
