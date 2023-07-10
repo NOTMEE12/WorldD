@@ -8,18 +8,43 @@ from pygame.locals import *
 import tomllib
 
 
+class Key:
+	
+	def __init__(self, keycode: str, mod: str):
+		mods = {'shift': KMOD_SHIFT, 'ctrl': KMOD_CTRL, 'alt': KMOD_ALT}
+		self.key = pg.key.key_code(keycode)
+		self.mod = mods[mod.lower()] if mod.lower() in mods else ''
+	
+	def __eq__(self, other):
+		return other.key == self.key and other.mod & self.mod
+
+
+class Bindings:
+	
+	def __init__(self, bindings):
+		self.SCALE_TILE_UP = Key(*bindings['SCALE-TILE-DOWN'])
+		self.SCALE_TILE_DOWN = Key(*bindings['SCALE-TILE-UP'])
+		self.TOGGLE_FULLSCREEN = Key(*bindings['TOGGLE-FULLSCREEN'])
+		self.EXIT = Key(*bindings['EXIT'])
+		self.SAVE = Key(*bindings['SAVE'])
+		self.LOAD = Key(*bindings['LOAD'])
+		self.TILE_LOOKUP_REMOVAL = Key(*bindings['TILE-LOOKUP-REMOVAL'])
+		self.SELECTION_ACCEPT = Key(*bindings['SELECTION-ACCEPT'])
+		self.CANCEL_SELECTION = Key(*bindings['CANCEL-SELECTION'])
+
+
 class Options:
 	
 	def __init__(self, file):
 		with open(file, 'rb') as file:
-			options = tomllib.load(file)
+			self.options = tomllib.load(file)
 			"""====[ GUI ]===="""
-			self.SHOW_EXIT = options['SHOW-EXIT']
-			self.HEADER_FONT = options['HEADER-FONT']
-			self.TEXT_FONT = options['TEXT-FONT']
-			self.SCROLL_SENSITIVITY = options['SCROLL-SENSITIVITY']
-			self.MOUSE_SENSITIVITY = options['MOUSE-SENSITIVITY']
-			self.FPS = options['FPS']
+			self.SHOW_EXIT = self.options['SHOW-EXIT']
+			self.HEADER_FONT = self.options['HEADER-FONT']
+			self.TEXT_FONT = self.options['TEXT-FONT']
+			self.SCROLL_SENSITIVITY = self.options['SCROLL-SENSITIVITY']
+			self.MOUSE_SENSITIVITY = self.options['MOUSE-SENSITIVITY']
+			self.FPS = self.options['FPS']
 
 
 class Main:
@@ -32,7 +57,8 @@ class Main:
 		self.display = pg.display.set_mode(self.win, RESIZABLE)
 		self.clock = pg.Clock()
 		self.events = ()
-		self.options = Options('options.toml')
+		self.Options = Options('options.toml')
+		self.Bindings = Bindings(self.Options.options)
 		"""====[ PROJECTS ]===="""
 		self.path = pg.system.get_pref_path('NotMEE12', 'WorldD')
 		if not os.path.exists(self.path + '\\recent.txt'):
@@ -50,12 +76,12 @@ class Main:
 		self.projects[self.selected].render()
 		for popup in self.popups:
 			popup.render()
-		if self.options.SHOW_EXIT:
+		if self.Options.SHOW_EXIT:
 			pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
 			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 5), (self.display.get_width()-5, 20), 5)
 			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 20), (self.display.get_width()-5, 5), 5)
 		pg.display.flip()
-		self.clock.tick(self.options.FPS)
+		self.clock.tick(self.Options.FPS)
 	
 	def exit(self):
 		pg.quit()
@@ -67,17 +93,22 @@ class Main:
 	def eventHandler(self):
 		self.events = pg.event.get()
 		for event in self.events:
-			if event.type == QUIT or (event.type == KEYDOWN and event.mod & KMOD_SHIFT and event.key == K_ESCAPE):
+			if event.type == QUIT:
 				self.exit()
-			if event.type == DROPFILE:
+			elif event.type == DROPFILE:
 				new_project = Project(self, (32, 32))
 				new_project.load(event.file)
 				self.projects.append(new_project)
 				self.selected = len(self.projects)-1
-			if event.type == MOUSEBUTTONDOWN:
+			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
 					if pg.Rect(self.display.get_width()-50, 0, 50, 50).collidepoint(event.pos):
 						self.exit()
+			elif event.type == KEYDOWN:
+				if event == self.Bindings.EXIT:
+					self.exit()
+				elif event == self.Bindings.TOGGLE_FULLSCREEN:
+					pg.display.toggle_fullscreen()
 		if not self.popups:
 			self.projects[self.selected].eventHandler()
 		else:
@@ -105,8 +136,8 @@ class Project:
 		"""====[ GUI ]===="""
 		self.offset = pg.Vector2(tile_size[0] * 2, tile_size[1] * 2)
 		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
-		self.text = pg.font.SysFont(self.main.options.TEXT_FONT, 30, False, False)
-		self.header = pg.font.SysFont(self.main.options.HEADER_FONT, 35, True, False)
+		self.text = pg.font.SysFont(self.main.Options.TEXT_FONT, 30, False, False)
+		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 35, True, False)
 		self.save_selection = self.header.render("Save selection? (name/ESC)", True, (250, 250, 250))
 		self.sprite_sheet = None
 		"""====[ CUSTOMIZABLE ]===="""
@@ -262,34 +293,33 @@ class Project:
 	def eventHandler(self):
 		for event in self.main.events:
 			if event.type == KEYDOWN:
-				if event.key == K_F11:
-					pg.display.toggle_fullscreen()
-				elif event.key == K_UP:
+				if event == self.main.Bindings.SCALE_TILE_UP:
 					self.tile_size *= 2
-				elif event.key == K_DOWN:
+				elif event == self.main.Bindings.SCALE_TILE_DOWN:
 					self.tile_size /= 2
-				elif event.mod & KMOD_CTRL and event.key == K_s:
+				elif event == self.main.Bindings.SAVE:
 					self.save()
-				elif event.mod & KMOD_CTRL and event.key == K_o:
+				elif event == self.main.Bindings.LOAD:
 					self.path = None
 					self.destination = None
 					self.load()
-				elif event.mod & KMOD_CTRL and event.key == K_DELETE:
-					del self.tiles[self.selected_tile]
-					self.selected_tile = None
+				elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
+					if self.selected_tile is not None:
+						del self.tiles[self.selected_tile]
+						self.selected_tile = None
 				elif self.save_selection != (0, 0, 0, 0):
-					if event.key == K_ESCAPE:
+					if event == self.main.Bindings.CANCEL_SELECTION:
 						self.selection = pg.Rect(0, 0, 0, 0)
 						self.selection_name = ""
 					elif event.key == K_BACKSPACE:
 						self.selection_name = self.selection_name[:-1]
-					elif event.key == K_DELETE:
-						pass
-					elif event.key == K_RETURN:
+					elif event == self.main.Bindings.SELECTION_ACCEPT:
 						self.tiles[self.selection_name] = tuple(self.selection.copy())
 						print(self.tiles)
 						self.selection = pg.Rect(0, 0, 0, 0)
 						self.selection_name = ""
+					elif not event.unicode.isascii():
+						pass
 					else:
 						self.selection_name += event.unicode
 			elif event.type == MOUSEBUTTONDOWN:
@@ -337,7 +367,7 @@ class Project:
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
-						self.offset += pg.Vector2(event.rel) * self.main.options.MOUSE_SENSITIVITY / self.zoom
+						self.offset += pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY / self.zoom
 					elif event.buttons[0]:
 						if self.selected_tile is not None:
 							bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
@@ -350,7 +380,7 @@ class Project:
 				elif self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
 				                                top=self.sidebar.centery).collidepoint(event.pos[0], event.pos[1]):
 					if event.buttons[1]:
-						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.main.options.MOUSE_SENSITIVITY
+						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY
 						self.sprite_sheet_offset.x = pg.math.clamp(self.sprite_sheet_offset.x, 0,
 						                                           self.sprite_sheet_zoom *
 						                                           self.sprite_sheet.get_width() -
@@ -361,10 +391,10 @@ class Project:
 						                                           self.sprite_sheet.get_height())
 			elif event.type == MOUSEWHEEL:
 				if pg.mouse.get_pos()[0] > self.sidebar.right:
-					self.zoom += event.y * self.main.options.SCROLL_SENSITIVITY
+					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
 					self.zoom = pg.math.clamp(self.zoom, 0.75, 5)
 				else:
-					self.sprite_sheet_zoom += event.y * self.main.options.SCROLL_SENSITIVITY
+					self.sprite_sheet_zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
 					if self.sprite_sheet_zoom < 1 or self.sprite_sheet_zoom > 15:
 						self.sprite_sheet_zoom = pg.math.clamp(self.sprite_sheet_zoom, 1, 15)
 
@@ -375,9 +405,9 @@ class Welcome:
 		self.main = main
 		self.display = main.display
 		"""====[ TEXT ]===="""
-		self.header = pg.font.SysFont(self.main.options.HEADER_FONT, 100, True, False)
-		self.text = pg.font.SysFont(self.main.options.TEXT_FONT, 40, False, False)
-		self.text_und = pg.font.SysFont(self.main.options.TEXT_FONT, 40, False, False)
+		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 100, True, False)
+		self.text = pg.font.SysFont(self.main.Options.TEXT_FONT, 40, False, False)
+		self.text_und = pg.font.SysFont(self.main.Options.TEXT_FONT, 40, False, False)
 		self.text_und.set_underline(True)
 		
 		self.texts = {
@@ -460,9 +490,9 @@ class Popup:
 	def __init__(self, main, display, question, options):
 		self.main = main
 		self.display = display
-		self.header = pg.font.SysFont(self.main.options.HEADER_FONT, 60, True, False)
-		self.text = pg.font.SysFont(self.main.options.TEXT_FONT, 30, False, False)
-		self.text_hover = pg.font.SysFont(self.main.options.TEXT_FONT, 30, True, False)
+		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 60, True, False)
+		self.text = pg.font.SysFont(self.main.Options.TEXT_FONT, 30, False, False)
+		self.text_hover = pg.font.SysFont(self.main.Options.TEXT_FONT, 30, True, False)
 		
 		self.question = self.header.render(question, True, (200, 200, 200))
 		self.options = {option: self.text.render(option, True, (200, 200, 200)) for option in options}

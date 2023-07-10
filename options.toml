@@ -1,15 +1,23 @@
 
 # #====[ GUI ]====# #
-SHOW-EXIT           = true
-FPS                 = 120
+SHOW-EXIT               = true
+FPS                     = 120
 
 
 # #====[ CONTROLS ]====# #
-MOUSE-SENSITIVITY   = 1
-SCROLL-SENSITIVITY  = 0.25
-
+MOUSE-SENSITIVITY       = 1
+SCROLL-SENSITIVITY      = 0.25
+SCALE-TILE-UP           = ['up', '']    # 'up' will mean the arrow up
+SCALE-TILE-DOWN         = ['down', '']  # 'down' means arrow down
+TOGGLE-FULLSCREEN       = ['F11', '']
+SAVE                    = ['s', 'ctrl']
+LOAD                    = ['o', 'ctrl']
+EXIT                    = ['escape', 'shift']
+CANCEL-SELECTION        = ['escape', '']
+SELECTION-ACCEPT        = ['enter', ''] # 'return' is enter key
+TILE-LOOKUP-REMOVAL     = ['delete', 'ctrl']
 
 
 # #====[ FONTS ]====# #
-HEADER-FONT         = 'Arial'
-TEXT-FONT           = 'Arial'
+HEADER-FONT             = 'Arial'
+TEXT-FONT               = 'Arial'
