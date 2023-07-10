@@ -8,15 +8,63 @@ from pygame.locals import *
 import tomllib
 
 
+def draw_rect(surf, color, rect, width=0, *args):
+	"""custom function to draw rect with negative size"""
+	new_rect = pg.Rect(
+		rect.x + (rect.w if rect.w < 0 else 0),
+		rect.y + (rect.h if rect.h < 0 else 0),
+		rect.w - ((rect.w * 2) if rect.w < 0 else 0),
+		rect.h - ((rect.h * 2) if rect.h < 0 else 0)
+	)
+	pg.draw.rect(surf, color, new_rect, width, *args)
+
+
 class Key:
 	
 	def __init__(self, keycode: str, mod: str):
-		mods = {'shift': KMOD_SHIFT, 'ctrl': KMOD_CTRL, 'alt': KMOD_ALT}
 		self.key = pg.key.key_code(keycode)
-		self.mod = mods[mod.lower()] if mod.lower() in mods else ''
+		self.mod = self.get_mode(mod)
+	
+	@staticmethod
+	def mode_name(mod: int) -> str:
+		mods = {
+			KMOD_SHIFT: 'shift',
+			KMOD_LSHIFT: 'lshift',
+			KMOD_RSHIFT: 'rshift',
+			KMOD_CTRL: 'ctrl',
+			KMOD_LCTRL: 'lctrl',
+			KMOD_RCTRL: 'rctrl',
+			KMOD_ALT: 'alt',
+			KMOD_LALT: 'lalt',
+			KMOD_RALT: 'ralt',
+			KMOD_CAPS: 'caps',
+			KMOD_NUM: 'num',
+			KMOD_GUI: 'gui',
+			KMOD_LGUI: 'lgui',
+			KMOD_RGUI: 'rgui',
+			KMOD_NONE: 'NO MODE'
+		}
+		return mods[mod] if mod in mods else 'MODE UNKNOWN'
+	
+	@staticmethod
+	def get_mode(mod: str) -> int:
+		mods = {
+			'shift': KMOD_SHIFT,
+			'lshift': KMOD_LSHIFT,
+			'rshift': KMOD_RSHIFT,
+			'ctrl': KMOD_CTRL,
+			'lctrl': KMOD_LCTRL,
+			'rctrl': KMOD_RCTRL,
+			'alt': KMOD_ALT,
+			'lalt': KMOD_LALT,
+			'ralt': KMOD_RALT,
+			'caps': KMOD_CAPS,
+			'num': KMOD_NUM,
+		}
+		return mods[mod] if mod in mods else KMOD_NONE
 	
 	def __eq__(self, other):
-		return other.key == self.key and other.mod & self.mod
+		return other.key == self.key and ((other.mod & self.mod) if self.mod != KMOD_NONE else (other.mod == self.mod))
 
 
 class Bindings:
@@ -207,7 +255,6 @@ class Project:
 				self.path = self.destination.name
 			else:
 				self.destination = open(self.path, 'a+')
-			print(self.destination.name)
 		self.destination.seek(0)
 		self.destination.truncate(0)
 		self.destination.write(
@@ -257,7 +304,7 @@ class Project:
 		pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
 		pg.draw.rect(self.display, (32, 32, 32), rect)
 		sp_sheet = pg.transform.scale_by(self.sprite_sheet, self.sprite_sheet_zoom)
-		pg.draw.rect(sp_sheet, self.selection_color, pg.Rect(
+		draw_rect(sp_sheet, self.selection_color, pg.Rect(
 			self.selection.x * self.sprite_sheet_zoom, self.selection.y * self.sprite_sheet_zoom,
 			self.selection.w * self.sprite_sheet_zoom, self.selection.h * self.sprite_sheet_zoom), width=3)
 		if self.sprite_sheet.get_width() > self.sprite_sheet.get_height():
@@ -315,7 +362,6 @@ class Project:
 						self.selection_name = self.selection_name[:-1]
 					elif event == self.main.Bindings.SELECTION_ACCEPT:
 						self.tiles[self.selection_name] = tuple(self.selection.copy())
-						print(self.tiles)
 						self.selection = pg.Rect(0, 0, 0, 0)
 						self.selection_name = ""
 					elif not event.unicode.isascii():
@@ -357,13 +403,17 @@ class Project:
 							self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and \
 							event.pos[1] >= self.sidebar.centery:
 						self.selection.w = pg.math.clamp(
-								(event.pos[0]-(self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))/self.sprite_sheet_zoom-self.selection.x+1,
-								0, self.sprite_sheet.get_width()
-							)
+							(event.pos[0] - (
+										self.sidebar.centerx - self.sprite_sheet.get_width() / 2 - self.sprite_sheet_offset.x)) / self.sprite_sheet_zoom - self.selection.x + 1,
+							self.selection.x - self.sprite_sheet.get_width(),
+							self.sprite_sheet.get_width() - self.selection.x
+						)
 						self.selection.h = pg.math.clamp(
-								(event.pos[1] - self.sidebar.centery + self.sprite_sheet_offset.y) / self.sprite_sheet_zoom-self.selection.y+1,
-								0, self.sprite_sheet.get_height()
-							)
+							(event.pos[
+								 1] - self.sidebar.centery + self.sprite_sheet_offset.y) / self.sprite_sheet_zoom - self.selection.y + 1,
+							self.selection.y - self.sprite_sheet.get_height(),
+							self.sprite_sheet.get_height() - self.selection.y
+						)
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
@@ -378,7 +428,7 @@ class Project:
 							)
 							self.grid[pos] = self.selected_tile
 				elif self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
-				                                top=self.sidebar.centery).collidepoint(event.pos[0], event.pos[1]):
+				                                top=self.sidebar.centery).collidepoint(event.pos):
 					if event.buttons[1]:
 						self.sprite_sheet_offset -= pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY
 						self.sprite_sheet_offset.x = pg.math.clamp(self.sprite_sheet_offset.x, 0,
@@ -389,6 +439,33 @@ class Project:
 						                                           self.sprite_sheet_zoom *
 						                                           self.sprite_sheet.get_height() -
 						                                           self.sprite_sheet.get_height())
+					if self.sidebar.centerx + self.sprite_sheet.get_width() / 2 \
+							>= event.pos[0] >= \
+							self.sidebar.centerx - self.sprite_sheet.get_width() / 2 and \
+							event.pos[1] >= self.sidebar.centery:
+						if event.buttons[0]:
+							w = (event.pos[0]-
+							     (self.sidebar.centerx-self.sprite_sheet.get_width()/2-self.sprite_sheet_offset.x))\
+							    /self.sprite_sheet_zoom-self.selection.x
+							if w > 0:
+								w += 1
+							else:
+								w -= 1
+							self.selection.w = pg.math.clamp(
+									w,
+									-self.sprite_sheet.get_width()+self.selection.x,
+								self.sprite_sheet.get_width()-self.selection.x
+								)
+							h = (event.pos[1] - self.sidebar.centery + self.sprite_sheet_offset.y) / self.sprite_sheet_zoom-self.selection.y
+							if h > 0:
+								h += 1
+							else:
+								h -= 1
+							self.selection.h = pg.math.clamp(
+								h,
+								-self.sprite_sheet.get_height()+self.selection.y,
+								self.sprite_sheet.get_height()-self.selection.y
+							)
 			elif event.type == MOUSEWHEEL:
 				if pg.mouse.get_pos()[0] > self.sidebar.right:
 					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY

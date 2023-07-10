@@ -14,7 +14,7 @@ SAVE                    = ['s', 'ctrl']
 LOAD                    = ['o', 'ctrl']
 EXIT                    = ['escape', 'shift']
 CANCEL-SELECTION        = ['escape', '']
-SELECTION-ACCEPT        = ['enter', ''] # 'return' is enter key
+SELECTION-ACCEPT        = ['return', ''] # 'return' is enter key
 TILE-LOOKUP-REMOVAL     = ['delete', 'ctrl']
 
 
