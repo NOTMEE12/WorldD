@@ -6,6 +6,8 @@
 - `CTRL + S` - save output,
 - `CTRL + O` - load world,
 - `CTRL + DELETE` - delete tile from lookup (all occurrences of tile will be deleted),
+- `Q` - move project selection to left
+- `E` - move project selection to right
 
 ### important info:
 - by renaming the tiles in the lookup, every tile in the grid will be replaced.
