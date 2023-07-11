@@ -139,6 +139,7 @@ class Main:
 			for en, project in enumerate(self.projects[self.selected+1:]):
 				name = self.SmallerHeader.render(project.path.split('/')[-1], True, (200, 200, 200))
 				pos = (main_pos[0] + main_project.get_width() + sum(self.SmallerHeader.size(' '+p.path.split('/')[-1]+' ')[0] for p in self.projects[self.selected+1:en-1]), (self.Options.TOP_OFFSET-name.get_height())/2 )
+				self.display.blit(name, pos)
 		
 		"""====[ POPUPS ]===="""
 		for popup in self.popups:
