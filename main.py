@@ -79,6 +79,8 @@ class Bindings:
 		self.TILE_LOOKUP_REMOVAL = Key(*bindings['TILE-LOOKUP-REMOVAL'])
 		self.SELECTION_ACCEPT = Key(*bindings['SELECTION-ACCEPT'])
 		self.CANCEL_SELECTION = Key(*bindings['CANCEL-SELECTION'])
+		self.PROJECT_SELECTION_LEFT = Key(*bindings['PROJECT-SELECTION-LEFT'])
+		self.PROJECT_SELECTION_RIGHT = Key(*bindings['PROJECT-SELECTION-RIGHT'])
 
 
 class Options:
@@ -93,6 +95,7 @@ class Options:
 			self.SCROLL_SENSITIVITY = self.options['SCROLL-SENSITIVITY']
 			self.MOUSE_SENSITIVITY = self.options['MOUSE-SENSITIVITY']
 			self.FPS = self.options['FPS']
+			self.TOP_OFFSET = self.options['TOP-OFFSET']
 
 
 class Main:
@@ -108,6 +111,8 @@ class Main:
 		self.Options = Options('options.toml')
 		self.Bindings = Bindings(self.Options.options)
 		"""====[ PROJECTS ]===="""
+		self.Header = pg.font.SysFont(self.Options.HEADER_FONT, 50, True, False)
+		self.SmallerHeader = pg.font.SysFont(self.Options.HEADER_FONT, 30, False, False)
 		self.path = pg.system.get_pref_path('NotMEE12', 'WorldD')
 		if not os.path.exists(self.path + '\\recent.txt'):
 			self.recent = []
@@ -119,11 +124,26 @@ class Main:
 		self.selected = 0
 
 	def refresh(self):
-		self.display.fill(0)
-		pg.draw.rect(self.display, (120, 120, 120), pg.Rect(0, 0, self.display.get_width(), 50))
 		self.projects[self.selected].render()
+		"""====[ PROJECT NAME ]===="""
+		pg.draw.rect(self.display, (5, 5, 5), pg.Rect(0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
+		main_project = self.Header.render('< ' + self.projects[self.selected].path.split('/')[-1] + ' > ', True, (200, 200, 200))
+		main_pos = ((self.display.get_width()-main_project.get_width())/2, (self.Options.TOP_OFFSET-main_project.get_height())/2)
+		self.display.blit(main_project, main_pos)
+		if self.selected > 0:
+			for en, project in enumerate(self.projects[:self.selected]):
+				name = self.SmallerHeader.render(project.path.split('/')[-1], True, (200, 200, 200))
+				pos = (main_pos[0] - sum(self.SmallerHeader.size(' '+p.path.split('/')[-1]+' ')[0] for p in self.projects[:en+1]), (self.Options.TOP_OFFSET-name.get_height())/2 )
+				self.display.blit(name, pos)
+		if self.selected < len(self.projects)-1:
+			for en, project in enumerate(self.projects[self.selected+1:]):
+				name = self.SmallerHeader.render(project.path.split('/')[-1], True, (200, 200, 200))
+				pos = (main_pos[0] + main_project.get_width() + sum(self.SmallerHeader.size(' '+p.path.split('/')[-1]+' ')[0] for p in self.projects[self.selected+1:en-1]), (self.Options.TOP_OFFSET-name.get_height())/2 )
+		
+		"""====[ POPUPS ]===="""
 		for popup in self.popups:
 			popup.render()
+		"""====[ EXIT ]===="""
 		if self.Options.SHOW_EXIT:
 			pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
 			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 5), (self.display.get_width()-5, 20), 5)
@@ -150,13 +170,19 @@ class Main:
 				self.selected = len(self.projects)-1
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
-					if pg.Rect(self.display.get_width()-50, 0, 50, 50).collidepoint(event.pos):
+					if pg.Rect(self.display.get_width()-50, 0, 50, 50).collidepoint(event.pos) and self.Options.SHOW_EXIT:
 						self.exit()
 			elif event.type == KEYDOWN:
 				if event == self.Bindings.EXIT:
 					self.exit()
 				elif event == self.Bindings.TOGGLE_FULLSCREEN:
 					pg.display.toggle_fullscreen()
+				elif event == self.Bindings.PROJECT_SELECTION_LEFT:
+					self.selected -= 1
+					self.selected = pg.math.clamp(self.selected, 0, len(self.projects)-1)
+				elif event == self.Bindings.PROJECT_SELECTION_RIGHT:
+					self.selected += 1
+					self.selected = pg.math.clamp(self.selected, 0, len(self.projects)-1)
 		if not self.popups:
 			self.projects[self.selected].eventHandler()
 		else:
@@ -272,17 +298,18 @@ class Project:
 			self.main.recent.append(self.path)
 	
 	def render(self):
+		dis_rect = self.display.get_rect()
 		self.display.fill(0)
 		bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
 		bold_y = self.offset[1] * self.zoom - self.tile_size[1]
-		for idx in range(int(max(self.display.get_width() / self.tile_size[0], self.display.get_height() /
-		                                                                       self.tile_size[1]) / self.zoom)):
+		for idx in range(int(max(dis_rect.w / self.tile_size[0], dis_rect.h / self.tile_size[1]) / self.zoom)):
 			x = idx * self.tile_size[0] * self.zoom + self.offset[0] % self.tile_size[0] * self.zoom - \
 			    self.tile_size[0] + self.sidebar.right
-			pg.draw.line(self.display, self.grid_color, (x, 0), (x, self.display.get_height()), 1)
+			pg.draw.line(self.display, self.grid_color, (x, self.main.Options.TOP_OFFSET), (x, dis_rect.h), 1)
 			x2 = self.sidebar.right - self.offset[0] % self.tile_size[0] - self.tile_size[0]
 			y = idx * self.tile_size[1] * self.zoom + self.offset[1] % self.tile_size[1] * self.zoom - self.tile_size[0]
-			pg.draw.line(self.display, self.grid_color, (x2, y), (self.display.get_width(), y), 1)
+			if y >= self.main.Options.TOP_OFFSET:
+				pg.draw.line(self.display, self.grid_color, (x2, y), (dis_rect.w, y), 1)
 		# ===[ GRID ]===
 		for pos, name in self.grid.copy().items():
 			try:
@@ -290,14 +317,17 @@ class Project:
 			except KeyError:
 				del self.grid[pos]
 				continue
-			size = self.tile_size * self.zoom
+			size = [self.tile_size.x * self.zoom, self.tile_size.y * self.zoom]
 			x = bold_x + size[0] * pos[0]
 			y = bold_y + size[1] * pos[1]
-			self.display.blit(pg.transform.scale(self.sprite_sheet.subsurface(tile), size), (x, y))
+			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h-self.main.Options.TOP_OFFSET)\
+					.colliderect(pg.Rect((x, y), size)):
+				self.display.blit(pg.transform.scale(self.sprite_sheet.subsurface(tile), size), (x, y))
 		# ===[ BOLD LINES ]===
-		pg.draw.line(self.display, "white", (bold_x, 0), (bold_x, self.display.get_height()), 5)
-		pg.draw.line(self.display, "white", (0, bold_y), (self.display.get_width(), bold_y), 5)
-		pg.draw.circle(self.display, "white", (bold_x, bold_y), 15)
+		pg.draw.line(self.display, "white", (bold_x, self.main.Options.TOP_OFFSET), (bold_x, dis_rect.h), 5)
+		if bold_y > self.main.Options.TOP_OFFSET:
+			pg.draw.line(self.display, "white", (0, bold_y), (dis_rect.w, bold_y), 5)
+			pg.draw.circle(self.display, "white", (bold_x, bold_y), 15)
 		"""====[ SIDEBAR ]===="""
 		rect = self.sprite_sheet.get_rect(left=self.sidebar.centerx - self.sprite_sheet.get_width() / 2,
 		                                  top=self.sidebar.centery)
@@ -327,12 +357,12 @@ class Project:
 			self.display.blit(text, (rect.centerx-text.get_width()/2, rect.bottom + 50))
 		tiles = pg.Surface((self.sidebar.w, self.sidebar.centery))
 		for idx, (name, tile) in enumerate(self.tiles.items()):
-			pos = pg.Vector2(idx % 7 * 69+5, idx//7*109+5+self.scroll)
+			pos = pg.Vector2(idx % 7 * 69+5, idx//7*109+5+self.scroll+self.main.Options.TOP_OFFSET)
 			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
 			if name == self.selected_tile:
 				pg.draw.rect(tiles, self.selected_tile_color, pg.Rect(pos.x-4, pos.y-4, 72, 72))
 			tiles.blit(pg.transform.scale(self.sprite_sheet.subsurface(tile), (64, 64)), pos)
-			tiles.blit(text, (idx % 7 * 69+5+32-text.get_width()/2, idx//7*109+5+64+self.scroll))
+			tiles.blit(text, (pos[0]+32-text.get_width()/2, pos[1]+64))
 		self.display.blit(tiles, (0, 0))
 		tile_size = self.header.render(f'{self.tile_size[0]}x{self.tile_size[1]}', True, (200, 200, 200))
 		self.display.blit(tile_size, (rect.centerx-tile_size.get_width()/2, rect.bottom + 100))
@@ -384,7 +414,7 @@ class Project:
 							self.selection.h = 0
 						elif self.sidebar.collidepoint(event.pos):
 							for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
-								if pg.Rect((idx % 7 * 69+5, idx//7*109+5+self.scroll), (64, 64)).collidepoint(event.pos):
+								if pg.Rect(pg.Vector2(idx % 7 * 69+5, idx//7*109+5+self.scroll+self.main.Options.TOP_OFFSET), (64, 64)).collidepoint(event.pos):
 									self.selected_tile = name
 									break
 					else:
@@ -481,6 +511,7 @@ class Welcome:
 	def __init__(self, main: Main):
 		self.main = main
 		self.display = main.display
+		self.path = 'Welcome'
 		"""====[ TEXT ]===="""
 		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 100, True, False)
 		self.text = pg.font.SysFont(self.main.Options.TEXT_FONT, 40, False, False)

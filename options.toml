@@ -1,8 +1,8 @@
 
-# #====[ GUI ]====# #
-SHOW-EXIT               = true
+# #====[ CUSTOMIZATIONS ]====# #
+SHOW-EXIT               = false
 FPS                     = 120
-
+TOP-OFFSET              = 50
 
 # #====[ CONTROLS ]====# #
 MOUSE-SENSITIVITY       = 1
@@ -16,6 +16,8 @@ EXIT                    = ['escape', 'shift']
 CANCEL-SELECTION        = ['escape', '']
 SELECTION-ACCEPT        = ['return', ''] # 'return' is enter key
 TILE-LOOKUP-REMOVAL     = ['delete', 'ctrl']
+PROJECT-SELECTION-LEFT  = ['q', '']
+PROJECT-SELECTION-RIGHT = ['e', '']
 
 
 # #====[ FONTS ]====# #
