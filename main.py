@@ -64,14 +64,14 @@ class Key:
 		return mods[mod] if mod in mods else KMOD_NONE
 	
 	def __eq__(self, other):
-		return other.key == self.key and ((other.mod & self.mod) if self.mod != KMOD_NONE else (other.mod == self.mod))
+		return other.key == self.key and ((other.mod & self.mod) if self.mod != KMOD_NONE else True)
 
 
 class Bindings:
 	
 	def __init__(self, bindings):
-		self.SCALE_TILE_UP = Key(*bindings['SCALE-TILE-DOWN'])
-		self.SCALE_TILE_DOWN = Key(*bindings['SCALE-TILE-UP'])
+		self.SCALE_TILE_UP = Key(*bindings['SCALE-TILE-UP'])
+		self.SCALE_TILE_DOWN = Key(*bindings['SCALE-TILE-DOWN'])
 		self.TOGGLE_FULLSCREEN = Key(*bindings['TOGGLE-FULLSCREEN'])
 		self.EXIT = Key(*bindings['EXIT'])
 		self.SAVE = Key(*bindings['SAVE'])
@@ -291,6 +291,19 @@ class Project:
 		if self.path not in self.main.recent:
 			self.main.recent.append(self.path)
 		
+	def display_hover_tile(self):
+		if self.selected_tile is not None:
+			bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
+			bold_y = self.offset[1] * self.zoom - self.tile_size[1]
+			dis_rect = self.display.get_rect()
+			pos = self.current_block(pg.mouse.get_pos())
+			size = [self.tile_size.x * self.zoom, self.tile_size.y * self.zoom]
+			x = bold_x + size[0] * pos[0]
+			y = bold_y + size[1] * pos[1]
+			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
+					.colliderect(pg.Rect((x, y), size)):
+				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile]), size), (x, y))
+		
 	def render(self):
 		dis_rect = self.display.get_rect()
 		self.display.fill(0)
@@ -317,6 +330,7 @@ class Project:
 			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h-self.main.Options.TOP_OFFSET)\
 					.colliderect(pg.Rect((x, y), size)):
 				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size), (x, y))
+		self.display_hover_tile()
 		# ===[ BOLD LINES ]===
 		pg.draw.line(self.display, "white", (bold_x, self.main.Options.TOP_OFFSET), (bold_x, dis_rect.h), 5)
 		if bold_y > self.main.Options.TOP_OFFSET:
@@ -335,6 +349,16 @@ class Project:
 			tiles.blit(text, (pos[0] + 32 - text.get_width() / 2, pos[1] + 64))
 		self.display.blit(tiles, (0, 0))
 	
+	def current_block(self, pos) -> tuple[int, int]:
+		""":return: block position at specified mouse pos"""
+		bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
+		bold_y = self.offset[1] * self.zoom - self.tile_size[1]
+		pos = (
+			int((pos[0] - bold_x) // (self.tile_size[0] * self.zoom)),
+			int((pos[1] - bold_y) // (self.tile_size[1] * self.zoom))
+		)
+		return pos
+	
 	def eventHandler(self):
 		for event in self.main.events:
 			if event.type == KEYDOWN:
@@ -342,6 +366,10 @@ class Project:
 					self.tile_size *= 2
 				elif event == self.main.Bindings.SCALE_TILE_DOWN:
 					self.tile_size /= 2
+					if self.tile_size[0] < 1:
+						self.tile_size[0] = 1
+					if self.tile_size[1] < 1:
+						self.tile_size[1] = 1
 				elif event == self.main.Bindings.SAVE:
 					self.save()
 				elif event == self.main.Bindings.LOAD:
@@ -355,37 +383,25 @@ class Project:
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
 					if event.pos[0] < self.sidebar.right:
-						if (
-								not (event.pos[0] >= self.sidebar.centerx - self.sprite_sheet.w / 2
-								     and
-								     event.pos[1] >= self.sidebar.centery)
-						) and self.sidebar.collidepoint(event.pos):
+						if (not self.sprite_sheet.area.collidepoint(event.pos)) and self.sidebar.collidepoint(event.pos):
 							for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
 								if pg.Rect(pg.Vector2(idx % 7 * 69+5, idx//7*109+5+self.scroll+self.main.Options.TOP_OFFSET), (64, 64)).collidepoint(event.pos):
 									self.selected_tile = name
 									break
 					else:
 						if self.selected_tile is not None:
-							bold_x = self.sprite_sheet.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
-							bold_y = self.sprite_sheet.offset[1] * self.zoom - self.tile_size[1]
-							pos = (
-								int((event.pos[0]-bold_x)//(self.tile_size[0]*self.zoom)),
-								int((event.pos[1]-bold_y)//(self.tile_size[1]*self.zoom))
-							)
-							self.grid[pos] = self.selected_tile
+							self.grid[self.current_block(event.pos)] = self.selected_tile
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
 						self.offset += pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY / self.zoom
 					elif event.buttons[0]:
 						if self.selected_tile is not None:
-							bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
-							bold_y = self.offset[1] * self.zoom - self.tile_size[1]
-							pos = (
-								int((event.pos[0] - bold_x) // (self.tile_size[0] * self.zoom)),
-								int((event.pos[1] - bold_y) // (self.tile_size[1] * self.zoom))
-							)
-							self.grid[pos] = self.selected_tile
+							self.grid[self.current_block(event.pos)] = self.selected_tile
+			elif event.type == MOUSEWHEEL:
+				if not self.sidebar.collidepoint(pg.mouse.get_pos()):
+					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
+					self.zoom = pg.math.clamp(self.zoom, 0.25, 15)
 		self.sprite_sheet.eventHandler(self.main.events)
 			
 	class SpriteSheet:
@@ -426,6 +442,10 @@ class Project:
 				          ), width=3
 				          )
 		
+		@property
+		def area(self):
+			return self.img.get_rect(centerx=self.sidebar.centerx, top=self.sidebar.centery)
+		
 		def draw_lines(self, img, tile_size):
 			if img.get_width() > img.get_height():
 				r = img.get_width() / tile_size[0]
@@ -441,7 +461,7 @@ class Project:
 			pg.draw.line(img, self.grid_color, (0, img.get_height()-1), (img.get_width(), img.get_height()-1))
 		
 		def draw_data(self):
-			rect = self.img.get_rect(centerx=self.sidebar.centerx, top=self.sidebar.centery)
+			rect = self.area
 			if self.selection != (0, 0, 0, 0):
 				self.display.blit(self.save_selection,
 				                  (rect.centerx - self.save_selection.get_width() / 2, rect.bottom + 20))
@@ -452,7 +472,7 @@ class Project:
 		
 		def render(self, tile_size):
 			sp_sheet = pg.transform.scale_by(self.img, self.zoom)
-			rect = self.img.get_rect(centerx=self.sidebar.centerx, top=self.sidebar.centery)
+			rect = self.area
 			pg.draw.rect(self.display, (32, 32, 32), rect)
 			self.draw_lines(sp_sheet, tile_size)
 			# sp sheet
@@ -472,13 +492,13 @@ class Project:
 			return self.img.get_rect(**kwargs)
 
 		def get_point(self, x, y):
-			rect = self.img.get_rect(centerx=self.sidebar.centerx, top=self.sidebar.centery)
+			rect = self.area
 			area = self.img.get_rect(
 				topleft=(self.w / 2 * (self.zoom - 1) + self.offset.x, self.h / 2 * (self.zoom - 1) + self.offset.y)
 			)
 			vis = pg.Rect(rect.left - area[0], rect.top - area[1], self.w * self.zoom, self.h * self.zoom)
-			x = pg.math.clamp((x - vis.left) / self.zoom + 1, 0, self.w)
-			y = pg.math.clamp((y - vis.top) / self.zoom + 1, 0, self.h)
+			x = pg.math.clamp((x - vis.left) / self.zoom, 0, self.w)
+			y = pg.math.clamp((y - vis.top) / self.zoom, 0, self.h)
 			return x, y
 
 		def eventHandler(self, events):
@@ -489,7 +509,7 @@ class Project:
 						if self.zoom < 1 or self.zoom > 15:
 							self.zoom = pg.math.clamp(self.zoom, 1, 15)
 				elif event.type == MOUSEMOTION:
-					if event.pos[0] < self.sidebar.right:
+					if self.area.collidepoint(pg.mouse.get_pos()):
 						if event.buttons[0]:
 							point = self.get_point(*event.pos)
 							self.selection.size = (point[0] - self.selection.x, point[1] - self.selection.y)
@@ -497,9 +517,18 @@ class Project:
 							self.offset -= pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY
 				elif event.type == MOUSEBUTTONDOWN:
 					if event.button == 1:
-						if event.pos[0] >= self.sidebar.centerx - self.w / 2 and event.pos[1] >= self.sidebar.centery:
-							self.selection.move(*self.get_point(*event.pos))
+						if self.area.collidepoint(event.pos):
+							self.selection.topleft = pg.Vector2(self.get_point(*event.pos))
 							self.selection.size = (0, 0)
+				elif event.type == MOUSEBUTTONUP:
+					if event.button == 1:
+						if self.area.collidepoint(event.pos):
+							self.selection = pg.Rect(
+								self.selection.x + (self.selection.w if self.selection.w < 0 else 0),
+								self.selection.y + (self.selection.h if self.selection.h < 0 else 0),
+								self.selection.w - ((self.selection.w * 2) if self.selection.w < 0 else 0),
+								self.selection.h - ((self.selection.h * 2) if self.selection.h < 0 else 0)
+							)
 				elif event.type == KEYDOWN:
 					if self.save_selection != (0, 0, 0, 0):
 						if event == self.main.Bindings.CANCEL_SELECTION:
