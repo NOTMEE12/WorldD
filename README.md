@@ -8,6 +8,8 @@
 - `CTRL + DELETE` - delete tile from lookup (all occurrences of tile will be deleted),
 - `Q` - move project selection to left
 - `E` - move project selection to right
+- `X` - rect fill tool
+- `W` - brush tool (default)
 
 ### important info:
 - by renaming the tiles in the lookup, every tile in the grid will be replaced.

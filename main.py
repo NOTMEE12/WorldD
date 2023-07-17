@@ -81,6 +81,8 @@ class Bindings:
 		self.CANCEL_SELECTION = Key(*bindings['CANCEL-SELECTION'])
 		self.PROJECT_SELECTION_LEFT = Key(*bindings['PROJECT-SELECTION-LEFT'])
 		self.PROJECT_SELECTION_RIGHT = Key(*bindings['PROJECT-SELECTION-RIGHT'])
+		self.RECT = Key(*bindings['RECT'])
+		self.BRUSH = Key(*bindings['BRUSH'])
 
 
 class Options:
@@ -195,7 +197,12 @@ class Main:
 			self.refresh()
 			if self.eventHandler():
 				return 1
-			pg.display.set_caption("{:.2f}".format(self.clock.get_fps()))
+			if self.projects[self.selected].path != 'Welcome':
+				tiles = f'{len(self.projects[self.selected].grid.keys())} tiles | '
+			else:
+				tiles = ''
+			path = self.projects[self.selected].path
+			pg.display.set_caption(f'{path} - WorldD | {tiles}{self.clock.get_fps():.2f} FPS')
 
 
 class Project:
@@ -215,6 +222,10 @@ class Project:
 		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 35, True, False)
 		self.save_selection = self.header.render("Save selection? (name/ESC)", True, (250, 250, 250))
 		self.sprite_sheet = None
+		"""====[ TOOLS ]===="""
+		self.tool = 'brush'
+		self.rect = [False, pg.Rect(0, 0, 0, 0)]
+		
 		"""====[ CUSTOMIZABLE ]===="""
 		self.destination = None
 		self.path = None
@@ -297,13 +308,43 @@ class Project:
 			bold_y = self.offset[1] * self.zoom - self.tile_size[1]
 			dis_rect = self.display.get_rect()
 			pos = self.current_block(pg.mouse.get_pos())
-			size = [self.tile_size.x * self.zoom, self.tile_size.y * self.zoom]
+			size = (self.tile_size.x * self.zoom, self.tile_size.y * self.zoom)
 			x = bold_x + size[0] * pos[0]
 			y = bold_y + size[1] * pos[1]
 			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
 					.colliderect(pg.Rect((x, y), size)):
 				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile]), size), (x, y))
-		
+	
+	def draw_hover_rect(self):
+		if self.selected_tile is not None and self.rect[0]:
+			bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
+			bold_y = self.offset[1] * self.zoom - self.tile_size[1]
+			dis_rect = self.display.get_rect()
+			size = (self.tile_size.x * self.zoom, self.tile_size.y * self.zoom)
+			
+			rect: pg.Rect = self.rect[1]
+			
+			left = rect.left if rect.w > 0 else rect.right-1
+			right = rect.right if rect.w > 0 else rect.left
+			top = rect.top if rect.h > 0 else rect.bottom-1
+			bottom = rect.bottom if rect.h > 0 else rect.top
+
+			for x_ in range(left, right):
+				for y_ in range(top, bottom):
+					x = bold_x + size[0] * x_
+					y = bold_y + size[1] * y_
+					if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
+							.colliderect(pg.Rect((x, y), size)):
+						self.display.blit(
+							pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile]), size),
+							(x, y))
+			w = 5
+			left = bold_x + size[0] * left-w
+			top = bold_y + size[1] * top-w
+			width = bold_x + size[0] * right - left+w
+			height = bold_y + size[1] * bottom - top+w
+			pg.draw.rect(self.display, (200, 200, 200), pg.Rect((left, top), (width, height)), w)
+	
 	def render(self):
 		dis_rect = self.display.get_rect()
 		self.display.fill(0)
@@ -330,7 +371,10 @@ class Project:
 			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h-self.main.Options.TOP_OFFSET)\
 					.colliderect(pg.Rect((x, y), size)):
 				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size), (x, y))
-		self.display_hover_tile()
+		if self.tool == 'brush':
+			self.display_hover_tile()
+		elif self.tool == 'rect':
+			self.draw_hover_rect()
 		# ===[ BOLD LINES ]===
 		pg.draw.line(self.display, "white", (bold_x, self.main.Options.TOP_OFFSET), (bold_x, dis_rect.h), 5)
 		if bold_y > self.main.Options.TOP_OFFSET:
@@ -362,6 +406,14 @@ class Project:
 	def eventHandler(self):
 		for event in self.main.events:
 			if event.type == KEYDOWN:
+				if event == self.main.Bindings.RECT:
+					self.tool = 'rect'
+					self.rect[0] = False
+					self.rect[1].topleft = (0, 0)
+					self.rect[1].size = (0, 0)
+				if event == self.main.Bindings.BRUSH:
+					self.tool = 'brush'
+					self.rect = [False, pg.Rect(0, 0, 0, 0)]
 				if event == self.main.Bindings.SCALE_TILE_UP:
 					self.tile_size *= 2
 				elif event == self.main.Bindings.SCALE_TILE_DOWN:
@@ -380,6 +432,13 @@ class Project:
 					if self.selected_tile is not None:
 						del self.tiles[self.selected_tile]
 						self.selected_tile = None
+			elif event.type == KEYUP:
+				if event == self.main.Bindings.RECT:
+					if self.rect[0]:
+						pos = self.current_block(pg.mouse.get_pos())
+						self.rect[1].w = pos[0] - self.rect[1].x + 1
+						self.rect[1].h = pos[1] - self.rect[1].y + 1
+						self.rect[0] = False
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
 					if event.pos[0] < self.sidebar.right:
@@ -390,14 +449,41 @@ class Project:
 									break
 					else:
 						if self.selected_tile is not None:
-							self.grid[self.current_block(event.pos)] = self.selected_tile
+							if self.tool == 'brush':
+								self.grid[self.current_block(event.pos)] = self.selected_tile
+							elif self.tool == 'rect':
+								self.rect[0] = True
+								self.rect[1] = pg.Rect(self.current_block(pg.mouse.get_pos()), (0, 0))
+			elif event.type == MOUSEBUTTONUP:
+				if self.selected_tile is not None:
+					if self.tool == 'rect':
+						if self.rect[0]:
+							rect: pg.Rect = self.rect[1]
+							
+							left = rect.left if rect.w > 0 else rect.right - 1
+							right = rect.right if rect.w > 0 else rect.left
+							top = rect.top if rect.h > 0 else rect.bottom - 1
+							bottom = rect.bottom if rect.h > 0 else rect.top
+							for x in range(left, right):
+								for y in range(top, bottom):
+									self.grid[(x, y)] = self.selected_tile
+							self.rect[0] = False
+							pos = self.current_block(event.pos)
+							self.rect[1].w = pos[0] - self.rect[1].x + 1
+							self.rect[1].h = pos[1] - self.rect[1].y + 1
 			elif event.type == MOUSEMOTION:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
 						self.offset += pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY / self.zoom
 					elif event.buttons[0]:
 						if self.selected_tile is not None:
-							self.grid[self.current_block(event.pos)] = self.selected_tile
+							if self.tool == 'brush':
+								self.grid[self.current_block(event.pos)] = self.selected_tile
+							elif self.tool == 'rect':
+								if self.rect[0]:
+									pos = self.current_block(pg.mouse.get_pos())
+									self.rect[1].w = pos[0] - self.rect[1].x + 1
+									self.rect[1].h = pos[1] - self.rect[1].y + 1
 			elif event.type == MOUSEWHEEL:
 				if not self.sidebar.collidepoint(pg.mouse.get_pos()):
 					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY

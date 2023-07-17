@@ -18,6 +18,9 @@ SELECTION-ACCEPT        = ['return', ''] # 'return' is enter key
 TILE-LOOKUP-REMOVAL     = ['delete', 'ctrl']
 PROJECT-SELECTION-LEFT  = ['q', '']
 PROJECT-SELECTION-RIGHT = ['e', '']
+# tools
+RECT                    = ['x', '']
+BRUSH                   = ['w', '']
 
 
 # #====[ FONTS ]====# #
