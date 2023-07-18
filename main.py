@@ -7,6 +7,9 @@ import pygame as pg
 from pygame.locals import *
 import tomllib
 
+pg.init()
+tkinter.Tk().withdraw()
+
 
 def draw_rect(surf, color, rect, width=0, *args):
 	"""custom function to draw rect with negative size"""
@@ -103,8 +106,7 @@ class Options:
 class Main:
 	
 	def __init__(self):
-		pg.init()
-		tkinter.Tk().withdraw()
+		""""""
 		"""====[ WINDOW ]===="""
 		self.win = pg.Vector2(pg.display.get_desktop_sizes()[0])
 		self.display = pg.display.set_mode(self.win, RESIZABLE)
@@ -126,9 +128,11 @@ class Main:
 		self.selected = 0
 
 	def refresh(self):
+		self.display.fill(0)
+		
 		self.projects[self.selected].render()
 		"""====[ PROJECT NAME ]===="""
-		pg.draw.rect(self.display, (5, 5, 5), pg.Rect(0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
+		pg.draw.rect(self.display, (5, 5, 5), (0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
 		main_project = self.Header.render('< ' + self.projects[self.selected].path.split('/')[-1] + ' > ', True, (200, 200, 200))
 		main_pos = ((self.display.get_width()-main_project.get_width())/2, (self.Options.TOP_OFFSET-main_project.get_height())/2)
 		self.display.blit(main_project, main_pos)
@@ -143,9 +147,11 @@ class Main:
 				pos = (main_pos[0] + main_project.get_width() + sum(self.SmallerHeader.size(' '+p.path.split('/')[-1]+' ')[0] for p in self.projects[self.selected+1:en-1]), (self.Options.TOP_OFFSET-name.get_height())/2 )
 				self.display.blit(name, pos)
 		
+		self.projects[self.selected].render_on_top()
+		
 		"""====[ POPUPS ]===="""
-		for popup in self.popups:
-			popup.render()
+		# for popup in self.popups:
+		# 	popup.render()
 		"""====[ EXIT ]===="""
 		if self.Options.SHOW_EXIT:
 			pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
@@ -157,6 +163,8 @@ class Main:
 		with open(self.path + '\\recent.txt', 'a') as recent:
 			recent.truncate(0)
 			recent.writelines(self.recent)
+		for project in self.projects:
+			project.save()
 		sys.exit()
 	
 	def eventHandler(self):
@@ -192,9 +200,9 @@ class Main:
 		
 	def run(self):
 		while True:
+			self.refresh()
 			pg.display.flip()
 			self.clock.tick(self.Options.FPS)
-			self.refresh()
 			if self.eventHandler():
 				return 1
 			if self.projects[self.selected].path != 'Welcome':
@@ -215,6 +223,7 @@ class Project:
 		"""====[ WINDOW ]===="""
 		self.win = main.win
 		self.display = main.display
+		
 		"""====[ GUI ]===="""
 		self.offset = pg.Vector2(tile_size[0] * 2, tile_size[1] * 2)
 		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
@@ -222,9 +231,12 @@ class Project:
 		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 35, True, False)
 		self.save_selection = self.header.render("Save selection? (name/ESC)", True, (250, 250, 250))
 		self.sprite_sheet = None
+		
 		"""====[ TOOLS ]===="""
 		self.tool = 'brush'
 		self.rect = [False, pg.Rect(0, 0, 0, 0)]
+		
+		"""====[ CONFIG ]===="""
 		
 		"""====[ CUSTOMIZABLE ]===="""
 		self.destination = None
@@ -257,11 +269,16 @@ class Project:
 				self.load(file.name)
 		self.selected_tile = None
 		self.scroll = 0
-		self.grid_color = "white"
-		self.selected_tile_color = "white"
+		self.grid_color = (255, 255, 255)
+		self.selected_tile_color = (255, 255, 255)
 		self.tile_size = pg.Vector2(tile_size)
 		self.zoom = 1
-
+		
+		"""====[ CACHED ]===="""
+		self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
+		                       self.offset[1] * self.zoom - self.tile_size[1])
+		self.tile_cache = {}
+	
 	def load(self, path=None):
 		if path is not None:
 			self.path = path
@@ -304,82 +321,98 @@ class Project:
 		
 	def display_hover_tile(self):
 		if self.selected_tile is not None:
-			bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
-			bold_y = self.offset[1] * self.zoom - self.tile_size[1]
 			dis_rect = self.display.get_rect()
 			pos = self.current_block(pg.mouse.get_pos())
 			size = (self.tile_size.x * self.zoom, self.tile_size.y * self.zoom)
-			x = bold_x + size[0] * pos[0]
-			y = bold_y + size[1] * pos[1]
+			x = self.bold.x + size[0] * pos[0]
+			y = self.bold.y + size[1] * pos[1]
 			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
 					.colliderect(pg.Rect((x, y), size)):
 				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile]), size), (x, y))
 	
 	def draw_hover_rect(self):
 		if self.selected_tile is not None and self.rect[0]:
-			bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
-			bold_y = self.offset[1] * self.zoom - self.tile_size[1]
 			dis_rect = self.display.get_rect()
 			size = (self.tile_size.x * self.zoom, self.tile_size.y * self.zoom)
 			
 			rect: pg.Rect = self.rect[1]
 			
 			left = rect.left if rect.w > 0 else rect.right-1
-			right = rect.right if rect.w > 0 else rect.left
+			right = rect.right if rect.w > 0 else rect.left+1
 			top = rect.top if rect.h > 0 else rect.bottom-1
-			bottom = rect.bottom if rect.h > 0 else rect.top
+			bottom = rect.bottom if rect.h > 0 else rect.top+1
 
 			for x_ in range(left, right):
 				for y_ in range(top, bottom):
-					x = bold_x + size[0] * x_
-					y = bold_y + size[1] * y_
+					x = self.bold.x + size[0] * x_
+					y = self.bold.y + size[1] * y_
 					if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
 							.colliderect(pg.Rect((x, y), size)):
 						self.display.blit(
 							pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile]), size),
 							(x, y))
 			w = 5
-			left = bold_x + size[0] * left-w
-			top = bold_y + size[1] * top-w
-			width = bold_x + size[0] * right - left+w
-			height = bold_y + size[1] * bottom - top+w
+			left = self.bold.x + size[0] * left-w
+			top = self.bold.y + size[1] * top-w
+			width = self.bold.x + size[0] * right - left+w
+			height = self.bold.y + size[1] * bottom - top+w
 			pg.draw.rect(self.display, (200, 200, 200), pg.Rect((left, top), (width, height)), w)
+	
+	def draw_grid_lines(self):
+		dis_rect = self.display.get_rect()
+		v_line = pg.Surface((dis_rect.w, 1))
+		h_line = pg.Surface((1, dis_rect.h))
+		v_line.fill(self.grid_color)
+		h_line.fill(self.grid_color)
+		tile_w, tile_h = self.tile_size
+		lines = []
+		for idx in range(int(max(dis_rect.w / self.tile_size[0], dis_rect.h / self.tile_size[1]) / self.zoom)):
+			x = idx * tile_w * self.zoom + self.offset[0] % tile_w * self.zoom - tile_w + self.sidebar.right
+			if 0 < x < dis_rect.w:
+				lines.append((h_line, (x, self.main.Options.TOP_OFFSET)))
+			x2 = self.sidebar.right - self.offset[0] % tile_w - tile_w
+			y = idx * tile_h * self.zoom + self.offset[1] % tile_h * self.zoom - tile_w
+			if y >= self.main.Options.TOP_OFFSET:
+				lines.append((v_line, (x2, y)))
+		self.display.fblits(lines)
+		
+	def draw_grid_tiles(self):
+		size = (self.tile_size.x * self.zoom, self.tile_size.y * self.zoom)
+		vis_rect = pg.Rect(self.sidebar.right-size[0]+1, self.main.Options.TOP_OFFSET-size[1], self.display.get_width()-self.sidebar.w+size[0], self.display.get_height())
+		grid = []
+		left, top = self.current_block(vis_rect.topleft)
+		right, bottom = self.current_block(vis_rect.bottomright)
+		for x_ in range(left, right):
+			for y_ in range(top, bottom):
+				pos = (x_, y_)
+				if pos in self.grid:
+					name = self.grid[pos]
+					if name in self.tiles:
+						tile = self.tiles[name]
+						x = self.bold.x + size[0] * pos[0]
+						y = self.bold.y + size[1] * pos[1]
+						if vis_rect.collidepoint(x, y):
+							if tile not in self.tile_cache:
+								self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
+							grid.append((self.tile_cache[tile], (x, y)))
+					else:
+						del self.grid[pos]
+		self.display.fblits(grid)
 	
 	def render(self):
 		dis_rect = self.display.get_rect()
-		self.display.fill(0)
-		bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
-		bold_y = self.offset[1] * self.zoom - self.tile_size[1]
-		for idx in range(int(max(dis_rect.w / self.tile_size[0], dis_rect.h / self.tile_size[1]) / self.zoom)):
-			x = idx * self.tile_size[0] * self.zoom + self.offset[0] % self.tile_size[0] * self.zoom - \
-			    self.tile_size[0] + self.sidebar.right
-			pg.draw.line(self.display, self.grid_color, (x, self.main.Options.TOP_OFFSET), (x, dis_rect.h), 1)
-			x2 = self.sidebar.right - self.offset[0] % self.tile_size[0] - self.tile_size[0]
-			y = idx * self.tile_size[1] * self.zoom + self.offset[1] % self.tile_size[1] * self.zoom - self.tile_size[0]
-			if y >= self.main.Options.TOP_OFFSET:
-				pg.draw.line(self.display, self.grid_color, (x2, y), (dis_rect.w, y), 1)
+		self.draw_grid_lines()
 		# ===[ GRID ]===
-		for pos, name in self.grid.copy().items():
-			try:
-				tile = self.tiles[name]
-			except KeyError:
-				del self.grid[pos]
-				continue
-			size = [self.tile_size.x * self.zoom, self.tile_size.y * self.zoom]
-			x = bold_x + size[0] * pos[0]
-			y = bold_y + size[1] * pos[1]
-			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h-self.main.Options.TOP_OFFSET)\
-					.colliderect(pg.Rect((x, y), size)):
-				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size), (x, y))
+		self.draw_grid_tiles()
 		if self.tool == 'brush':
 			self.display_hover_tile()
 		elif self.tool == 'rect':
 			self.draw_hover_rect()
 		# ===[ BOLD LINES ]===
-		pg.draw.line(self.display, "white", (bold_x, self.main.Options.TOP_OFFSET), (bold_x, dis_rect.h), 5)
-		if bold_y > self.main.Options.TOP_OFFSET:
-			pg.draw.line(self.display, "white", (0, bold_y), (dis_rect.w, bold_y), 5)
-			pg.draw.circle(self.display, "white", (bold_x, bold_y), 15)
+		pg.draw.line(self.display, "white", (self.bold.x, self.main.Options.TOP_OFFSET), (self.bold.x, dis_rect.h), 5)
+		if self.bold.y > self.main.Options.TOP_OFFSET:
+			pg.draw.line(self.display, "white", (0, self.bold.y), (dis_rect.w, self.bold.y), 5)
+			pg.draw.circle(self.display, "white", (self.bold.x, self.bold.y), 15)
 		"""====[ SIDEBAR ]===="""
 		pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
 		self.sprite_sheet.render(self.tile_size)
@@ -392,14 +425,17 @@ class Project:
 			tiles.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(tile), (64, 64)), pos)
 			tiles.blit(text, (pos[0] + 32 - text.get_width() / 2, pos[1] + 64))
 		self.display.blit(tiles, (0, 0))
+
+	def render_on_top(self):
+		tile_size = self.header.render(f'{self.tile_size[0]}x{self.tile_size[1]}', True,
+		                               (200, 200, 200))
+		self.display.blit(tile_size, (self.sidebar.centerx - tile_size.get_width() / 2, 0))
 	
 	def current_block(self, pos) -> tuple[int, int]:
 		""":return: block position at specified mouse pos"""
-		bold_x = self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right
-		bold_y = self.offset[1] * self.zoom - self.tile_size[1]
 		pos = (
-			int((pos[0] - bold_x) // (self.tile_size[0] * self.zoom)),
-			int((pos[1] - bold_y) // (self.tile_size[1] * self.zoom))
+			int((pos[0] - self.bold.x) // (self.tile_size[0] * self.zoom)),
+			int((pos[1] - self.bold.y) // (self.tile_size[1] * self.zoom))
 		)
 		return pos
 	
@@ -416,12 +452,14 @@ class Project:
 					self.rect = [False, pg.Rect(0, 0, 0, 0)]
 				if event == self.main.Bindings.SCALE_TILE_UP:
 					self.tile_size *= 2
+					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
+					                       self.offset[1] * self.zoom - self.tile_size[1])
 				elif event == self.main.Bindings.SCALE_TILE_DOWN:
 					self.tile_size /= 2
-					if self.tile_size[0] < 1:
-						self.tile_size[0] = 1
-					if self.tile_size[1] < 1:
-						self.tile_size[1] = 1
+					self.tile_size[0] = max(1.0, self.tile_size[0])
+					self.tile_size[1] = max(1.0, self.tile_size[1])
+					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
+					                       self.offset[1] * self.zoom - self.tile_size[1])
 				elif event == self.main.Bindings.SAVE:
 					self.save()
 				elif event == self.main.Bindings.LOAD:
@@ -461,9 +499,9 @@ class Project:
 							rect: pg.Rect = self.rect[1]
 							
 							left = rect.left if rect.w > 0 else rect.right - 1
-							right = rect.right if rect.w > 0 else rect.left
+							right = rect.right if rect.w > 0 else rect.left + 1
 							top = rect.top if rect.h > 0 else rect.bottom - 1
-							bottom = rect.bottom if rect.h > 0 else rect.top
+							bottom = rect.bottom if rect.h > 0 else rect.top + 1
 							for x in range(left, right):
 								for y in range(top, bottom):
 									self.grid[(x, y)] = self.selected_tile
@@ -475,6 +513,8 @@ class Project:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
 						self.offset += pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY / self.zoom
+						self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
+						                       self.offset[1] * self.zoom - self.tile_size[1])
 					elif event.buttons[0]:
 						if self.selected_tile is not None:
 							if self.tool == 'brush':
@@ -488,6 +528,8 @@ class Project:
 				if not self.sidebar.collidepoint(pg.mouse.get_pos()):
 					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
 					self.zoom = pg.math.clamp(self.zoom, 0.25, 15)
+					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
+					                       self.offset[1] * self.zoom - self.tile_size[1])
 		self.sprite_sheet.eventHandler(self.main.events)
 			
 	class SpriteSheet:
@@ -553,8 +595,6 @@ class Project:
 				                  (rect.centerx - self.save_selection.get_width() / 2, rect.bottom + 20))
 				text = self.text.render(self.selection_name, False, (120, 120, 120))
 				self.display.blit(text, (rect.centerx - text.get_width() / 2, rect.bottom + 50))
-			tile_size = self.header.render(f'{self.project.tile_size[0]}x{self.project.tile_size[1]}', True, (200, 200, 200))
-			self.display.blit(tile_size, (rect.centerx - tile_size.get_width() / 2, rect.bottom + 100))
 		
 		def render(self, tile_size):
 			sp_sheet = pg.transform.scale_by(self.img, self.zoom)
@@ -652,6 +692,10 @@ class Welcome:
 			'__Load_project__': self.text_und.render('Load project', True, (200, 200, 200))
 		}
 	
+	def save(self):
+		"""it's just to prevent errors"""
+		pass
+	
 	def render(self):
 		""""""  # empty doc string
 		"""====[ CONFIG ]===="""
@@ -683,6 +727,9 @@ class Welcome:
 			if txt.get_rect(topleft=pos).collidepoint(mouse_pos):
 				txt = self.text_und.render(text, True, (150, 150, 150))
 			self.display.blit(txt, pos)
+
+	def render_on_top(self):
+		pass
 
 	def eventHandler(self):
 		for event in self.main.events:
