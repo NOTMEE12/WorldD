@@ -112,7 +112,8 @@ class Main:
 		self.display = pg.display.set_mode(self.win, RESIZABLE)
 		self.clock = pg.Clock()
 		self.events = ()
-		self.Options = Options('options.toml')
+		self.work_path = os.path.dirname(os.path.abspath(__file__)) + '\\'
+		self.Options = Options(self.work_path + 'options.toml')
 		self.Bindings = Bindings(self.Options.options)
 		"""====[ PROJECTS ]===="""
 		self.Header = pg.font.SysFont(self.Options.HEADER_FONT, 50, True, False)
