@@ -1,2 +1,5 @@
 .idea
 .__pycache__
+dist
+WorldD.egg-info
+build
