@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 setuptools.setup(
 	name='WorldD',
 	version='0.1',
-	package_dir={"": "src"},
+	package_dir={"": "src/WorldD"},
 	author="Aleks Baran",
 	author_email="legominefan@gmail.com",
 	description="Level editor made specifically for pygame-ce",
