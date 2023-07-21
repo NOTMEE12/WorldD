@@ -8,7 +8,7 @@ setuptools.setup(
 	version='0.1',
 	author="Aleks Baran",
 	author_email="legominefan@gmail.com",
-	description="Level editor made specifically for pygame-ce",
+	description="Level editor made specifically for pygame games",
 	long_description=long_description,
 	long_description_content_type="text/markdown",
 	url="https://github.com/NotMEE12/WorldD",
