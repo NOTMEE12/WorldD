@@ -18,5 +18,5 @@ setuptools.setup(
 		"License :: OSI Approved :: MIT License",
 		"Operating System :: OS Independent",
 	],
-	package_dir={'WorldD': 'WorldD'}
+	package_dir={'': 'src'}
 )
