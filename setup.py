@@ -12,11 +12,13 @@ setuptools.setup(
 	long_description=long_description,
 	long_description_content_type="text/markdown",
 	url="https://github.com/NotMEE12/WorldD",
-	packages=setuptools.find_packages(),
+	packages=['WorldD'],
+	requires=['pygame', 'tomlkit'],
 	classifiers=[
 		"Programming Language :: Python :: 3",
 		"License :: OSI Approved :: MIT License",
 		"Operating System :: OS Independent",
 	],
-	package_dir={'': 'src'}
+	package_dir={'WorldD': 'src/WorldD'},
+	package_data={'WorldD': ['*.toml']}
 )
