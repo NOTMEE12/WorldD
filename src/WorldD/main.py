@@ -288,6 +288,20 @@ class Project:
 		self.tile_cache = {}
 	
 	def load(self, path=None):
+		def load_v0_12():
+			self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
+			self.tiles = TileGroup(self, 'all',
+			                       {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in
+			                        data['data'].items()})
+			self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+		
+		def load_v0_13():
+			self.tiles = {name: TileGroup(self, name, {tile: pos for tile, pos in tile_group['tiles'].items()}) for
+			              name, tile_group in data['data'].items()}
+			self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+			self.tile_size = pg.Vector2(*data['tile-size'])
+			self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
+		
 		if path is not None:
 			self.path = path
 		if self.destination is None:
@@ -305,8 +319,8 @@ class Project:
 			version = data['version']
 		
 		match version:
-			case "? 0.12": self.load_v0_12(data)
-			case "0.13": self.load_v0_13(data)
+			case "? 0.12": load_v0_12()
+			case "0.13": load_v0_13()
 			case _: print("VERSION UNKNOWN")
 		# self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
 		print(f"VER : {version}")
@@ -314,16 +328,6 @@ class Project:
 		
 		self.destination.close()
 		self.destination = None
-	
-	def load_v0_12(self, data):
-		self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
-		self.tiles = TileGroup(self, 'all', {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in data['data'].items()})
-		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
-	
-	def load_v0_13(self, data):
-		self.tiles = {name: TileGroup(self, name, {tile: pos for tile, pos in tile_group['tiles'].items()}) for name, tile_group in data['data'].items()}
-		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
-		self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
 
 	def save(self):
 		if self.destination is None:
@@ -334,18 +338,19 @@ class Project:
 				self.destination = open(self.path, 'a+')
 		else:
 			print(self.destination)
+		save_data = json.dumps(
+			{
+				'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
+				'data': {name: tile_group.data for name, tile_group in self.tiles.items()},
+				'img': self.sprite_sheet.path,
+				'tile-size': list(self.tile_size),
+				'version': __version__
+			},
+			indent=2
+		)
 		self.destination.seek(0)
 		self.destination.truncate(0)
-		self.destination.write(
-			json.dumps(
-				{
-					'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
-					'data': {name: tile_group.data for name, tile_group in self.tiles.items()},
-					'img': self.sprite_sheet.path,
-					'version': __version__
-				}
-			)
-		)
+		self.destination.write(save_data)
 		self.destination.close()
 		self.destination = None
 		if self.path not in self.main.recent:
@@ -365,7 +370,6 @@ class Project:
 	@property
 	def selected_tile(self):
 		if self._selected_tile is not None:
-			print(self._selected_tile[0], self._selected_tile[1], self.tiles[self._selected_tile[0]])
 			return self.tiles[self._selected_tile[0]][self._selected_tile[1]]
 		else:
 			return None
@@ -374,6 +378,10 @@ class Project:
 	def selected_tile(self, value):
 		print("VAL: ", value)
 		self._selected_tile = value
+		
+	@property
+	def raw_selected_tile(self):
+		return self._selected_tile
 		
 	def draw_hover_rect(self):
 		if self.selected_tile is not None and self.rect[0]:
@@ -725,23 +733,26 @@ class TileGroup:
 	
 	def draw(self):
 		tile_size = (max(64, int(self.project.tile_size[0])), max(64, int(self.project.tile_size[0])))
-		width = max(256, len(self.tiles)*tile_size[0])
-		height = max(256, len(self.tiles)//width*tile_size[1])
+		width = max(256, min(len(self.tiles), 5)*tile_size[0]+tile_size[0]//2)
+		tiles_in_row = width // tile_size[0]
+		height = max(256, (len(self.tiles)//tiles_in_row+1)*tile_size[1]) + 64
 		tiles = pg.Surface((width, height))
 		
-		name = self.text.render(self.name, True, (120, 120, 120))
-		self.display.blit(name, ((tiles.get_width()-name.get_width())/2, 0))
-		for idx, (name, tile) in enumerate(self.tiles.items()):
-			pos = pg.Vector2(idx % 7 * 69 + 5, idx // 7 * 109 + 5)
-			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
-			if self.project.selected_tile is not None and self.name == self.project.selected_tile[0] and name == self.project.selected_tile[1]:
-				pg.draw.rect(tiles, self.project.selected_tile_color, pg.Rect(pos.x - 4, pos.y - 4, tile_size[0]+64, tile_size[1]+8))
-			tiles.blit(pg.transform.scale(self.project.sprite_sheet.img.subsurface(tile), tile_size), pos)
-			tiles.blit(text, (pos[0] + tile_size[0]/2 - text.get_width() / 2, pos[1] + tile_size[1]))
-		if self.project.selected_tile is not None and self.project.selected_tile[0] == self.name:
+		if self.project.selected_tile is not None and self.name == self.project.raw_selected_tile[0]:
 			color = self.project.selected_window_outline_color
 		else:
 			color = self.project.window_outline_color
+		
+		name = self.header.render(self.name, True, color)
+		tiles.blit(name, ((tiles.get_width()-name.get_width())/2, 0))
+		for idx, (name, tile) in enumerate(self.tiles.items()):
+			pos = pg.Vector2(idx % tiles_in_row * 69 + 5, idx // tiles_in_row * 109 + 5 + 64)
+			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
+			if self.project.selected_tile is not None and (self.name, name) == self.project.raw_selected_tile:
+				pg.draw.rect(tiles, self.project.selected_tile_color, pg.Rect(pos.x - 4, pos.y - 4, tile_size[0]+8, tile_size[1]+8))
+			tiles.blit(pg.transform.scale(self.project.sprite_sheet.img.subsurface(tile), tile_size), pos)
+			tiles.blit(text, (pos[0] + tile_size[0]/2 - text.get_width() / 2, pos[1] + tile_size[1]))
+		
 		pg.draw.rect(self.display, color, pg.Rect(self.pos[0]-2, self.pos[1]-2, tiles.get_width()+4, tiles.get_height()+4), border_radius=15)
 		self.display.blit(tiles, self.pos)
 
@@ -760,14 +771,16 @@ class TileGroup:
 					tile_size = (max(64, int(self.project.tile_size[0])), max(64, int(self.project.tile_size[0])))
 
 					for idx, (name, tile) in enumerate(self.tiles.items()):
-						pos = pg.Vector2(idx % 7 * 69 + 5, idx // 7 * 109 + 5) + self.pos
+						pos = pg.Vector2(idx % 7 * 69 + 5, idx // 7 * 109 + 5 + 64) + self.pos
 						if pg.Rect(pos, tile_size).collidepoint(event.pos):
 							self.project.selected_tile = (self.name, name)
 							print('SELECTED TILE: ', self.project.selected_tile)
 							break
 	
+	def __setitem__(self, key, value):
+		self.tiles[key] = value
+	
 	def __getitem__(self, item):
-		print(item in self.tiles, item, self.tiles)
 		return self.tiles[item]
 	
 	@property
