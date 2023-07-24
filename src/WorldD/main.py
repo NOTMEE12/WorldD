@@ -10,6 +10,8 @@ import tomllib
 pg.init()
 tkinter.Tk().withdraw()
 
+__version__ = '0.13'
+
 
 def draw_rect(surf, color, rect, width=0, *args):
 	"""custom function to draw rect with negative size"""
@@ -160,12 +162,12 @@ class Main:
 			pg.draw.line(self.display, (180, 180, 180), (self.display.get_width()-20, 20), (self.display.get_width()-5, 5), 5)
 	
 	def exit(self):
-		pg.quit()
 		with open(self.path + '\\recent.txt', 'a') as recent:
 			recent.truncate(0)
 			recent.writelines(self.recent)
 		for project in self.projects:
 			project.save()
+		pg.quit()
 		sys.exit()
 	
 	def eventHandler(self):
@@ -242,16 +244,20 @@ class Project:
 		"""====[ CUSTOMIZABLE ]===="""
 		self.destination = None
 		self.path = None
-		self.tiles = {}
+		self.tiles = {'all': TileGroup(self, 'all', {})}
 		self.grid = {}
-		if load is False:
+		new_project = load is False
+		load_project = load is True
+		recent_project = load is not bool
+		if new_project:
 			filetypes = [('image', '*.png'), ('image', '*.jpg')]
 			file = filedialog.askopenfile(filetypes=filetypes)
 			if file is None:
 				raise IOError
 			self.path = file.name
 			self.sprite_sheet = self.SpriteSheet(file.name, self.display, self)
-		elif load is True:
+			file.close()
+		elif load_project:
 			filetypes = [('world', '*.world')]
 			file = filedialog.askopenfile(filetypes=filetypes)
 			if file is None:
@@ -259,7 +265,7 @@ class Project:
 			else:
 				self.load(file.name)
 			file.close()
-		else:
+		elif recent_project:
 			file = open(load)
 			if file is None:
 				raise IOError
@@ -268,10 +274,11 @@ class Project:
 			else:
 				self.path = file.name
 				self.load(file.name)
-		self.selected_tile = None
-		self.scroll = 0
+		self._selected_tile = None
 		self.grid_color = (255, 255, 255)
 		self.selected_tile_color = (255, 255, 255)
+		self.window_outline_color = (128, 128, 128)
+		self.selected_window_outline_color = (255, 255, 255)
 		self.tile_size = pg.Vector2(tile_size)
 		self.zoom = 1
 		
@@ -289,29 +296,53 @@ class Project:
 				self.path = self.destination.name
 			else:
 				self.destination = open(self.path)
+
+		print(f"FILE: {self.path}")
 		data = json.load(self.destination)
-		self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
-		self.tiles = {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in data['data'].items()}
-		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+		if "version" not in data:
+			version = "? 0.12"
+		else:
+			version = data['version']
+		
+		match version:
+			case "? 0.12": self.load_v0_12(data)
+			case "0.13": self.load_v0_13(data)
+			case _: print("VERSION UNKNOWN")
+		# self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
+		print(f"VER : {version}")
+		print(f"SPR : {self.sprite_sheet.path}")
+		
 		self.destination.close()
 		self.destination = None
-		print(self.path, self.sprite_sheet.path)
 	
+	def load_v0_12(self, data):
+		self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
+		self.tiles = TileGroup(self, 'all', {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(','))) for pos, tile in data['data'].items()})
+		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+	
+	def load_v0_13(self, data):
+		self.tiles = {name: TileGroup(self, name, {tile: pos for tile, pos in tile_group['tiles'].items()}) for name, tile_group in data['data'].items()}
+		self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+		self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
+
 	def save(self):
 		if self.destination is None:
-			if self.path is None:
+			if self.path is None or self.path[-4:] == '.png':
 				self.destination = filedialog.asksaveasfile('a+', defaultextension='.world')
 				self.path = self.destination.name
 			else:
 				self.destination = open(self.path, 'a+')
+		else:
+			print(self.destination)
 		self.destination.seek(0)
 		self.destination.truncate(0)
 		self.destination.write(
 			json.dumps(
 				{
 					'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
-					'data': {f"{pos}": tile for tile, pos in self.tiles.items()},
-					'img': self.sprite_sheet.path
+					'data': {name: tile_group.data for name, tile_group in self.tiles.items()},
+					'img': self.sprite_sheet.path,
+					'version': __version__
 				}
 			)
 		)
@@ -329,8 +360,21 @@ class Project:
 			y = self.bold.y + size[1] * pos[1]
 			if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
 					.colliderect(pg.Rect((x, y), size)):
-				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile]), size), (x, y))
+				self.display.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(self.selected_tile), size), (x, y))
 	
+	@property
+	def selected_tile(self):
+		if self._selected_tile is not None:
+			print(self._selected_tile[0], self._selected_tile[1], self.tiles[self._selected_tile[0]])
+			return self.tiles[self._selected_tile[0]][self._selected_tile[1]]
+		else:
+			return None
+	
+	@selected_tile.setter
+	def selected_tile(self, value):
+		print("VAL: ", value)
+		self._selected_tile = value
+		
 	def draw_hover_rect(self):
 		if self.selected_tile is not None and self.rect[0]:
 			dis_rect = self.display.get_rect()
@@ -350,7 +394,7 @@ class Project:
 					if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
 							.colliderect(pg.Rect((x, y), size)):
 						self.display.blit(
-							pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile]), size),
+							pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile[0]][self.selected_tile[1]]), size),
 							(x, y))
 			w = 5
 			left = self.bold.x + size[0] * left-w
@@ -379,7 +423,7 @@ class Project:
 		
 	def draw_grid_tiles(self):
 		size = (self.tile_size.x * self.zoom, self.tile_size.y * self.zoom)
-		vis_rect = pg.Rect(self.sidebar.right-size[0]+1, self.main.Options.TOP_OFFSET-size[1], self.display.get_width()-self.sidebar.w+size[0], self.display.get_height())
+		vis_rect = pg.Rect(self.sidebar.right-size[0]+1, self.main.Options.TOP_OFFSET-size[1], self.display.get_width()-self.sidebar.w+size[0]*2, self.sidebar.h+size[1])
 		grid = []
 		left, top = self.current_block(vis_rect.topleft)
 		right, bottom = self.current_block(vis_rect.bottomright)
@@ -388,16 +432,17 @@ class Project:
 				pos = (x_, y_)
 				if pos in self.grid:
 					name = self.grid[pos]
-					if name in self.tiles:
-						tile = self.tiles[name]
-						x = self.bold.x + size[0] * pos[0]
-						y = self.bold.y + size[1] * pos[1]
-						if vis_rect.collidepoint(x, y):
-							if tile not in self.tile_cache:
-								self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
-							grid.append((self.tile_cache[tile], (x, y)))
-					else:
-						del self.grid[pos]
+					for tile_group in self.tiles.values():
+						if name in tile_group:
+							tile = tile_group[name]
+							x = self.bold.x + size[0] * pos[0]
+							y = self.bold.y + size[1] * pos[1]
+							if vis_rect.collidepoint(x, y):
+								if tile not in self.tile_cache:
+									self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
+								grid.append((self.tile_cache[tile], (x, y)))
+						else:
+							del self.grid[pos]
 		self.display.fblits(grid)
 	
 	def render(self):
@@ -417,23 +462,18 @@ class Project:
 		"""====[ SIDEBAR ]===="""
 		pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
 		self.sprite_sheet.render(self.tile_size)
-		tiles = pg.Surface((self.sidebar.w, self.sidebar.centery))
-		for idx, (name, tile) in enumerate(self.tiles.items()):
-			pos = pg.Vector2(idx % 7 * 69 + 5, idx // 7 * 109 + 5 + self.scroll + self.main.Options.TOP_OFFSET)
-			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
-			if name == self.selected_tile:
-				pg.draw.rect(tiles, self.selected_tile_color, pg.Rect(pos.x - 4, pos.y - 4, 72, 72))
-			tiles.blit(pg.transform.scale(self.sprite_sheet.img.subsurface(tile), (64, 64)), pos)
-			tiles.blit(text, (pos[0] + 32 - text.get_width() / 2, pos[1] + 64))
-		self.display.blit(tiles, (0, 0))
+		for tile_group in self.tiles.values():
+			tile_group.draw()
 
 	def render_on_top(self):
 		tile_size = self.header.render(f'{self.tile_size[0]}x{self.tile_size[1]}', True,
 		                               (200, 200, 200))
 		self.display.blit(tile_size, (self.sidebar.centerx - tile_size.get_width() / 2, 0))
 	
-	def current_block(self, pos) -> tuple[int, int]:
-		""":return: block position at specified mouse pos"""
+	def current_block(self, pos=None) -> tuple[int, int]:
+		""":return: block position at specified pos / mouse pos"""
+		if pos is None:
+			pos = pg.mouse.get_pos()
 		pos = (
 			int((pos[0] - self.bold.x) // (self.tile_size[0] * self.zoom)),
 			int((pos[1] - self.bold.y) // (self.tile_size[1] * self.zoom))
@@ -469,30 +509,24 @@ class Project:
 					self.load()
 				elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
 					if self.selected_tile is not None:
-						del self.tiles[self.selected_tile]
+						del self.tiles[self.selected_tile[0]][self.selected_tile[1]]
 						self.selected_tile = None
 			elif event.type == KEYUP:
 				if event == self.main.Bindings.RECT:
 					if self.rect[0]:
-						pos = self.current_block(pg.mouse.get_pos())
+						pos = self.current_block()
 						self.rect[1].w = pos[0] - self.rect[1].x + 1
 						self.rect[1].h = pos[1] - self.rect[1].y + 1
 						self.rect[0] = False
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1:
-					if event.pos[0] < self.sidebar.right:
-						if (not self.sprite_sheet.area.collidepoint(event.pos)) and self.sidebar.collidepoint(event.pos):
-							for idx, (name, tile) in enumerate(zip(self.tiles.keys(), self.tiles.values())):
-								if pg.Rect(pg.Vector2(idx % 7 * 69+5, idx//7*109+5+self.scroll+self.main.Options.TOP_OFFSET), (64, 64)).collidepoint(event.pos):
-									self.selected_tile = name
-									break
-					else:
+					if not event.pos[0] < self.sidebar.right:
 						if self.selected_tile is not None:
 							if self.tool == 'brush':
-								self.grid[self.current_block(event.pos)] = self.selected_tile
+								self.grid[self.current_block()] = self.selected_tile
 							elif self.tool == 'rect':
 								self.rect[0] = True
-								self.rect[1] = pg.Rect(self.current_block(pg.mouse.get_pos()), (0, 0))
+								self.rect[1] = pg.Rect(self.current_block(), (0, 0))
 			elif event.type == MOUSEBUTTONUP:
 				if self.selected_tile is not None:
 					if self.tool == 'rect':
@@ -531,6 +565,8 @@ class Project:
 					self.zoom = pg.math.clamp(self.zoom, 0.25, 15)
 					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
 					                       self.offset[1] * self.zoom - self.tile_size[1])
+		for tile_group in self.tiles.values():
+			tile_group.eventHandler(self.main.events)
 		self.sprite_sheet.eventHandler(self.main.events)
 			
 	class SpriteSheet:
@@ -664,13 +700,79 @@ class Project:
 						elif event.key == K_BACKSPACE:
 							self.selection_name = self.selection_name[:-1]
 						elif event == self.main.Bindings.SELECTION_ACCEPT:
-							self.project.tiles[self.selection_name] = tuple(self.selection.copy())
+							self.project.tiles['all'][self.selection_name] = tuple(self.selection.copy())
 							self.selection = pg.Rect(0, 0, 0, 0)
 							self.selection_name = ""
 						elif not event.unicode.isascii():
 							pass
 						else:
 							self.selection_name += event.unicode
+
+
+class TileGroup:
+	
+	def __init__(self, project: Project, name, tiles):
+		self.project = project
+		self.display = project.display
+		self.header, self.text = self.project.header, self.project.text
+		self.tiles = tiles
+		self.name = name
+		self.cache = {}
+		self.pos = pg.Vector2(project.sidebar.centerx, project.main.Options.TOP_OFFSET+50)
+	
+	def items(self):
+		return self.tiles.items()
+	
+	def draw(self):
+		tile_size = (max(64, int(self.project.tile_size[0])), max(64, int(self.project.tile_size[0])))
+		width = max(256, len(self.tiles)*tile_size[0])
+		height = max(256, len(self.tiles)//width*tile_size[1])
+		tiles = pg.Surface((width, height))
+		
+		name = self.text.render(self.name, True, (120, 120, 120))
+		self.display.blit(name, ((tiles.get_width()-name.get_width())/2, 0))
+		for idx, (name, tile) in enumerate(self.tiles.items()):
+			pos = pg.Vector2(idx % 7 * 69 + 5, idx // 7 * 109 + 5)
+			text = self.text.render(name, False, (120, 120, 120), wraplength=55)
+			if self.project.selected_tile is not None and self.name == self.project.selected_tile[0] and name == self.project.selected_tile[1]:
+				pg.draw.rect(tiles, self.project.selected_tile_color, pg.Rect(pos.x - 4, pos.y - 4, tile_size[0]+64, tile_size[1]+8))
+			tiles.blit(pg.transform.scale(self.project.sprite_sheet.img.subsurface(tile), tile_size), pos)
+			tiles.blit(text, (pos[0] + tile_size[0]/2 - text.get_width() / 2, pos[1] + tile_size[1]))
+		if self.project.selected_tile is not None and self.project.selected_tile[0] == self.name:
+			color = self.project.selected_window_outline_color
+		else:
+			color = self.project.window_outline_color
+		pg.draw.rect(self.display, color, pg.Rect(self.pos[0]-2, self.pos[1]-2, tiles.get_width()+4, tiles.get_height()+4), border_radius=15)
+		self.display.blit(tiles, self.pos)
+
+	def eventHandler(self, events):
+		for event in events:
+			if event.type == MOUSEMOTION:
+				if event.buttons[0]:
+					tile_size = (min(64, int(self.project.tile_size[0])), min(64, int(self.project.tile_size[0])))
+					width = max(256, len(self.tiles) * tile_size[0])
+					height = max(256, len(self.tiles) // width * tile_size[1])
+					tiles = pg.Rect(self.pos, (width, height))
+					if tiles.collidepoint(pg.mouse.get_pos()):
+						self.pos += event.rel
+			elif event.type == MOUSEBUTTONDOWN:
+				if event.button == 1 and not self.project.sprite_sheet.area.collidepoint(event.pos):
+					tile_size = (max(64, int(self.project.tile_size[0])), max(64, int(self.project.tile_size[0])))
+
+					for idx, (name, tile) in enumerate(self.tiles.items()):
+						pos = pg.Vector2(idx % 7 * 69 + 5, idx // 7 * 109 + 5) + self.pos
+						if pg.Rect(pos, tile_size).collidepoint(event.pos):
+							self.project.selected_tile = (self.name, name)
+							print('SELECTED TILE: ', self.project.selected_tile)
+							break
+	
+	def __getitem__(self, item):
+		print(item in self.tiles, item, self.tiles)
+		return self.tiles[item]
+	
+	@property
+	def data(self):
+		return {'tiles': {name: tile for name, tile in self.tiles.items()}}
 
 
 class Welcome:
