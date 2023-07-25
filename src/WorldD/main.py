@@ -525,7 +525,7 @@ class Project:
 					self.load()
 				elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
 					if self.selected_tile is not None:
-						del self.tiles[self.selected_tile[0]][self.selected_tile[1]]
+						del self.tiles[self.raw_selected_tile[0]][self.raw_selected_tile[1]]
 						self.selected_tile = None
 			elif event.type == KEYUP:
 				if event == self.main.Bindings.RECT:
@@ -579,6 +579,7 @@ class Project:
 				if not self.sidebar.collidepoint(pg.mouse.get_pos()):
 					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
 					self.zoom = pg.math.clamp(self.zoom, 0.25, 15)
+					self.tile_cache = {}
 					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
 					                       self.offset[1] * self.zoom - self.tile_size[1])
 		for tile_group in self.tiles.values():
@@ -792,6 +793,9 @@ class TileGroup:
 	
 	def __getitem__(self, item):
 		return self.tiles[item]
+	
+	def __delitem__(self, key):
+		del self.tiles[key]
 	
 	def __contains__(self, item):
 		if item in self.tiles:
