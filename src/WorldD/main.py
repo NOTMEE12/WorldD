@@ -402,7 +402,7 @@ class Project:
 					if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
 							.colliderect(pg.Rect((x, y), size)):
 						self.display.blit(
-							pg.transform.scale(self.sprite_sheet.img.subsurface(self.tiles[self.selected_tile[0]][self.selected_tile[1]]), size),
+							pg.transform.scale(self.sprite_sheet.img.subsurface(self.selected_tile), size),
 							(x, y))
 			w = 5
 			left = self.bold.x + size[0] * left-w
@@ -439,18 +439,19 @@ class Project:
 			for y_ in range(top, bottom):
 				pos = (x_, y_)
 				if pos in self.grid:
-					name = self.grid[pos]
-					for tile_group in self.tiles.values():
-						if name in tile_group:
-							tile = tile_group[name]
-							x = self.bold.x + size[0] * pos[0]
-							y = self.bold.y + size[1] * pos[1]
-							if vis_rect.collidepoint(x, y):
-								if tile not in self.tile_cache:
-									self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
-								grid.append((self.tile_cache[tile], (x, y)))
-						else:
-							del self.grid[pos]
+					data = self.grid[pos]
+					tile_group = self.tiles[data[0]]
+					name = data[1]
+					if name in tile_group:
+						tile = tuple(tile_group[name])
+						x = self.bold.x + size[0] * pos[0]
+						y = self.bold.y + size[1] * pos[1]
+						if vis_rect.collidepoint(x, y):
+							if tile not in self.tile_cache:
+								self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
+							grid.append((self.tile_cache[tile], (x, y)))
+					else:
+						del self.grid[pos]
 		self.display.fblits(grid)
 	
 	def render(self):
@@ -487,6 +488,13 @@ class Project:
 			int((pos[1] - self.bold.y) // (self.tile_size[1] * self.zoom))
 		)
 		return pos
+	
+	def set_block(self, pos):
+		if self.selected_tile is not None:
+			group, name = self._selected_tile
+			self.grid[pos] = [group, name]
+		else:
+			pass
 	
 	def eventHandler(self):
 		for event in self.main.events:
@@ -531,7 +539,7 @@ class Project:
 					if not event.pos[0] < self.sidebar.right:
 						if self.selected_tile is not None:
 							if self.tool == 'brush':
-								self.grid[self.current_block()] = self.selected_tile
+								self.set_block(self.current_block(event.pos))
 							elif self.tool == 'rect':
 								self.rect[0] = True
 								self.rect[1] = pg.Rect(self.current_block(), (0, 0))
@@ -547,7 +555,7 @@ class Project:
 							bottom = rect.bottom if rect.h > 0 else rect.top + 1
 							for x in range(left, right):
 								for y in range(top, bottom):
-									self.grid[(x, y)] = self.selected_tile
+									self.set_block((x, y))
 							self.rect[0] = False
 							pos = self.current_block(event.pos)
 							self.rect[1].w = pos[0] - self.rect[1].x + 1
@@ -561,7 +569,7 @@ class Project:
 					elif event.buttons[0]:
 						if self.selected_tile is not None:
 							if self.tool == 'brush':
-								self.grid[self.current_block(event.pos)] = self.selected_tile
+								self.set_block(self.current_block(event.pos))
 							elif self.tool == 'rect':
 								if self.rect[0]:
 									pos = self.current_block(pg.mouse.get_pos())
@@ -769,9 +777,11 @@ class TileGroup:
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1 and not self.project.sprite_sheet.area.collidepoint(event.pos):
 					tile_size = (max(64, int(self.project.tile_size[0])), max(64, int(self.project.tile_size[0])))
-
+					width = max(256, min(len(self.tiles), 5) * tile_size[0] + tile_size[0] // 2)
+					tiles_in_row = width // tile_size[0]
+					
 					for idx, (name, tile) in enumerate(self.tiles.items()):
-						pos = pg.Vector2(idx % 7 * 69 + 5, idx // 7 * 109 + 5 + 64) + self.pos
+						pos = pg.Vector2(idx % tiles_in_row * 69 + 5, idx // tiles_in_row * 109 + 5 + 64) + self.pos
 						if pg.Rect(pos, tile_size).collidepoint(event.pos):
 							self.project.selected_tile = (self.name, name)
 							print('SELECTED TILE: ', self.project.selected_tile)
@@ -782,6 +792,12 @@ class TileGroup:
 	
 	def __getitem__(self, item):
 		return self.tiles[item]
+	
+	def __contains__(self, item):
+		if item in self.tiles:
+			return True
+		else:
+			return False
 	
 	@property
 	def data(self):
