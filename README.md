@@ -14,3 +14,4 @@
 
 ### important info:
 - by renaming the tiles in the lookup, every tile in the grid will be replaced.
+- path of the image is absolute. If you want to use WorldD you have to change the path to be relative, otherwise there is a very high probability it will not work.
