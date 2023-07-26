@@ -21,7 +21,6 @@
 ##### Project related
 - `Q` - move project selection to left
 - `E` - move project selection to right
-- `MOUSE RIGHT CLICK`
 
 ---
 ### Important Info
