@@ -1,17 +1,29 @@
 # WorldD - level designer for pygame
 [![Upload Python Package](https://github.com/NOTMEE12/WorldD/actions/workflows/python-publish.yml/badge.svg)](https://github.com/NOTMEE12/WorldD/actions/workflows/python-publish.yml)
+
+---
 ### Shortcuts:
+
+------------------------
+##### window related
 - `SHIFT + ESCAPE` - quit the application,
-- `Up and Down arrows` - scaling size of the tile,
 - `F11` - toggling fullscreen,
+##### tile related
+- `W` - brush tool (default)
+- `X` - rect fill tool
+- `SHIFT + X` - rect autotile fill tool
+- `Up and Down arrows` - scaling size of the tile,
+- `CTRL + DELETE` - delete tile from lookup (all occurrences of tile will be deleted),
+  > by renaming the tiles in the lookup, every tile in the grid will be replaced.
+##### saving / loading
 - `CTRL + S` - save output,
 - `CTRL + O` - load world,
-- `CTRL + DELETE` - delete tile from lookup (all occurrences of tile will be deleted),
+##### Project related
 - `Q` - move project selection to left
 - `E` - move project selection to right
-- `X` - rect fill tool
-- `W` - brush tool (default)
 
-### important info:
-- by renaming the tiles in the lookup, every tile in the grid will be replaced.
-- path of the image is absolute. If you want to use WorldD you have to change the path to be relative, otherwise there is a very high probability it will not work.
+---
+### Important Info
+
+1. > path of the image is absolute. If you want to use WorldD you have to change the path to be relative, 
+   > otherwise there is a very high probability it will not work.

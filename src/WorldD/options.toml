@@ -1,7 +1,7 @@
 
 # #====[ CUSTOMIZATIONS ]====# #
 SHOW-EXIT               = false
-FPS                     = 120
+FPS                     = 'AUTO'
 TOP-OFFSET              = 50
 
 # #====[ CONTROLS ]====# #
@@ -14,13 +14,23 @@ SAVE                    = ['s', 'ctrl']
 LOAD                    = ['o', 'ctrl']
 EXIT                    = ['escape', 'shift']
 CANCEL-SELECTION        = ['escape', '']
-SELECTION-ACCEPT        = ['return', ''] # 'return' is enter key
+SELECTION-ACCEPT        = ['return', '']  # 'return' is enter key
 TILE-LOOKUP-REMOVAL     = ['delete', 'ctrl']
 PROJECT-SELECTION-LEFT  = ['q', '']
 PROJECT-SELECTION-RIGHT = ['e', '']
+MATRIX-TOP-RIGHT        = ['[9]', '']  # NUMPAD 9
+MATRIX-TOP-MID          = ['[8]', '']
+MATRIX-TOP-LEFT         = ['[7]', '']
+MATRIX-MID-RIGHT        = ['[6]', '']
+MATRIX-MID-MID          = ['[5]', '']
+MATRIX-MID-LEFT         = ['[4]', '']
+MATRIX-BOT-RIGHT        = ['[3]', '']
+MATRIX-BOT-MID          = ['[2]', '']
+MATRIX-BOT-LEFT         = ['[1]', '']
 # tools
 RECT                    = ['x', '']
 BRUSH                   = ['w', '']
+AUTOTILE-RECT           = ['x', 'shift']
 
 
 # #====[ FONTS ]====# #

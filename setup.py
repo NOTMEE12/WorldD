@@ -20,5 +20,5 @@ setuptools.setup(
 		"Operating System :: OS Independent",
 	],
 	package_dir={'WorldD': 'src/WorldD'},
-	package_data={'WorldD': ['*.toml']}
+	package_data={'WorldD': ['*.toml', 'assets/*.png']}
 )
