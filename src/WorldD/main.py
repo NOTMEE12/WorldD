@@ -317,7 +317,7 @@ class Project:
 			print(self.tile_size)
 			self.tiles = {name: TileGroup(self, name, {tile: pos for tile, pos in tile_group['tiles'].items()}) for
 			              name, tile_group in data['data'].items()}
-			self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
+			self.grid = {tuple(map(int, map(float, pos.split(',')))): tile for pos, tile in data['grid'].items()}
 			self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
 		
 		if path is not None:
@@ -577,6 +577,45 @@ class Project:
 			for y in range(height[0], height[1]):
 				self.set_block((x, y))
 	
+	def upload_autotile_rect_to_grid(self, width, height):
+		if not (self.selected_tile is not None and self.rect[0]) or not self.tiles[
+			self.raw_selected_tile[0]].matrix_is_full():
+			return
+		group = self.tiles[self.raw_selected_tile[0]]
+		matrix = group.matrix
+		
+		left, right = width
+		top, bottom = height
+		
+		# DRAW TOP
+		width = right - left
+		height = bottom - top
+		
+		if width == 1 and height == 1:
+			self.set_block((left, top), group.name, matrix[(0, 0)])
+		if width > 1:
+			self.set_block((left, top), group.name, matrix[(-1, -1)])
+			self.set_block((right-1, top), group.name, matrix[(1, -1)])
+		if height > 1:
+			self.set_block((left, bottom - 1), group.name, matrix[(-1, 1)])
+			self.set_block((right-1, bottom-1), group.name, matrix[(1, 1)])
+		if width > 3 and height > 3:
+			for x in range(left + 1, right - 1):
+				for y in range(top + 1, bottom - 1):
+					self.set_block((x, y), group.name, matrix[(0, 0)])
+		if height > 2:
+			x = left
+			x2 = right - 1
+			for y in range(top + 1, bottom - 1):
+				self.set_block((x, y), group.name, matrix[(-1, 0)])
+				self.set_block((x2, y), group.name, matrix[(1, 0)])
+		if width > 2:
+			y = top
+			y2 = bottom - 1
+			for x in range(left + 1, right - 1):
+				self.set_block((x, y), group.name, matrix[(0, -1)])
+				self.set_block((x, y2), group.name, matrix[(0, 1)])
+	
 	def eventHandler(self):
 		for event in self.main.events:
 			if event.type == KEYDOWN:
@@ -633,7 +672,7 @@ class Project:
 									self.rect[1] = pg.Rect(self.current_block(), (1, 1))
 			elif event.type == MOUSEBUTTONUP:
 				if self.selected_tile is not None:
-					if self.tool == 'rect':
+					if self.tool == 'rect' or self.tool == 'autotile-rect':
 						if self.rect[0]:
 							rect: pg.Rect = self.rect[1]
 							
@@ -641,6 +680,8 @@ class Project:
 							height = (rect.top if rect.h > 0 else rect.bottom - 1, rect.bottom if rect.h > 0 else rect.top + 1)
 							if self.tool == 'rect':
 								self.upload_rect_to_grid(width, height)
+							else:
+								self.upload_autotile_rect_to_grid(width, height)
 							
 							self.rect[0] = False
 							pos = self.current_block(event.pos)
