@@ -252,7 +252,7 @@ class Project:
 		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
 		self.text = pg.font.SysFont(self.main.Options.TEXT_FONT, 30, False, False)
 		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 35, True, False)
-		self.save_selection = self.header.render("Save selection? (name/ESC)", True, (250, 250, 250))
+		self.save_selection = self.header.render("group (name/ESC)", True, (250, 250, 250))
 		self.sprite_sheet = None
 		
 		"""====[ TOOLS ]===="""
