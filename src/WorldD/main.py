@@ -173,8 +173,8 @@ class Main:
 		self.projects[self.selected].render_on_top()
 		
 		"""====[ POPUPS ]===="""
-		# for popup in self.popups:
-		# 	popup.render()
+		for popup in self.popups:
+			popup.render()
 		"""====[ EXIT ]===="""
 		if self.Options.SHOW_EXIT:
 			pg.draw.rect(self.display, (180, 180, 180), pg.Rect(self.display.get_width()-25, 0, 25, 25), border_radius=15, width=5)
@@ -219,7 +219,7 @@ class Main:
 			self.projects[self.selected].eventHandler()
 		else:
 			for popup in self.popups:
-				popup.eventHandler()
+				popup.eventHandler(self.events)
 		
 	def run(self):
 		while True:
@@ -519,16 +519,19 @@ class Project:
 				pos = (x_, y_)
 				if pos in self.grid:
 					data = self.grid[pos]
-					tile_group = self.tiles[data[0]]
-					name = data[1]
-					if name in tile_group:
-						tile = tuple(tile_group[name])
-						x = self.bold.x + size[0] * pos[0]
-						y = self.bold.y + size[1] * pos[1]
-						if vis_rect.collidepoint(x, y):
-							if tile not in self.tile_cache:
-								self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
-							grid.append((self.tile_cache[tile], (x, y)))
+					if data[0] in self.tiles:
+						tile_group = self.tiles[data[0]]
+						name = data[1]
+						if name in tile_group:
+							tile = tuple(tile_group[name])
+							x = self.bold.x + size[0] * pos[0]
+							y = self.bold.y + size[1] * pos[1]
+							if vis_rect.collidepoint(x, y):
+								if tile not in self.tile_cache:
+									self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
+								grid.append((self.tile_cache[tile], (x, y)))
+						else:
+							del self.grid[pos]
 					else:
 						del self.grid[pos]
 		self.display.fblits(grid)
@@ -1096,10 +1099,11 @@ class Welcome:
 		New_rect = New.get_rect(centerx=dis_rect.w/4, top=dis_rect.h/3)
 		Load = self.texts['Load project']
 		Load_rect = Load.get_rect(centerx=dis_rect.w/4, top=dis_rect.h/3+New_rect.height*1.5)
-		if New_rect.collidepoint(mouse_pos):
-			New = self.texts['__New_project__']
-		if Load_rect.collidepoint(mouse_pos):
-			Load = self.texts['__Load_project__']
+		if len(self.main.popups) == 0:
+			if New_rect.collidepoint(mouse_pos):
+				New = self.texts['__New_project__']
+			if Load_rect.collidepoint(mouse_pos):
+				Load = self.texts['__Load_project__']
 		self.display.blit(New, New_rect.topleft)
 		self.display.blit(Load, Load_rect.topleft)
 		
@@ -1109,7 +1113,7 @@ class Welcome:
 		for row, text in enumerate(self.main.recent):
 			pos = (rect.left + self.text.size('  ')[0], rect.top+row*self.text.get_height())
 			txt = self.text.render(text, True, (150, 150, 150))
-			if txt.get_rect(topleft=pos).collidepoint(mouse_pos):
+			if txt.get_rect(topleft=pos).collidepoint(mouse_pos) and len(self.main.popups) == 0:
 				txt = self.text_und.render(text, True, (150, 150, 150))
 			self.display.blit(txt, pos)
 
@@ -1126,12 +1130,7 @@ class Welcome:
 						centerx=dis_rect.w / 4, top=dis_rect.h / 3 + New_rect.height * 1.5
 					)
 					if New_rect.collidepoint(event.pos):
-						# self.main.popups.append(Popup(self.main, self.display, 'select type of world', ('isometric', '2d or 2.5d')))
-						try:
-							self.main.projects.append(Project(self.main, (32, 32)))
-							self.main.selected = len(self.main.projects)-1
-						except IOError:
-							pass
+						self.main.popups.append(Popup(self.main, self.display))
 					elif Load_rect.collidepoint(event.pos):
 						try:
 							self.main.projects.append(Project(self.main, (32, 32), load=True))
@@ -1153,35 +1152,97 @@ class Welcome:
 
 class Popup:
 	
-	def __init__(self, main, display, question, options):
+	def __init__(self, main, display):
 		self.main = main
 		self.display = display
 		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 60, True, False)
+		self.small_header = pg.font.SysFont(self.main.Options.HEADER_FONT, 40, True, False)
 		self.text = pg.font.SysFont(self.main.Options.TEXT_FONT, 30, False, False)
-		self.text_hover = pg.font.SysFont(self.main.Options.TEXT_FONT, 30, True, False)
+		self.text_hover = pg.font.SysFont(self.main.Options.TEXT_FONT, 31, True, False)
 		
-		self.question = self.header.render(question, True, (200, 200, 200))
-		self.options = {option: self.text.render(option, True, (200, 200, 200)) for option in options}
-		self.options_hover = {option: self.text_hover.render(option, True, (200, 200, 200)) for option in options}
+		self.question = self.header.render("New world", True, (200, 200, 200))
+		self.DATA = [
+			{
+				'question': "Type",
+				'options': ['isometric', '2(.5)D']
+			},
+			{
+				'question': "Tile Size",
+				'options': ['8x8', '16x16', '24x24', '32x32 (default)', '48x48', '64x64']
+			 }
+		]
+		self.option_groups = \
+			[
+				{
+					'question': self.small_header.render(option_group['question'], True, (200, 200, 200)),
+					'options':
+						{
+							option: self.text.render(option, True, (200, 200, 200)) for option in option_group['options']
+						}
+				} for option_group in self.DATA
+			]
+		self.option_groups_hover = \
+			[
+				{
+					'question': self.text_hover.render(option_group['question'], True, (200, 200, 200)),
+					'options':
+						{
+							option: self.text_hover.render(option, True, (200, 200, 200)) for option in option_group['options']
+						}
+				} for option_group in self.DATA
+			]
 		self.answer = None
 		self.pos = pg.Vector2((self.display.get_width()-self.question.get_width())/2-100, self.display.get_height()/3)
 	
 	def render(self):
-		rect = pg.Rect(self.pos, (self.question.get_width()+200, len(self.options.keys())*150))
+		rect = pg.Rect(self.pos, (self.question.get_width() + 200, self.question.get_height() + sum(70 + 50 * len(option_group['options'].values()) for option_group in self.option_groups)))
 		question_rect = self.question.get_rect(centerx=rect.centerx, top=rect.top)
+		question_rect.bottom += 10
+		top = question_rect.bottom
 		pg.draw.rect(self.display, (10, 10, 10), rect, border_radius=15)
 		pg.draw.rect(self.display, (100, 100, 100), rect, border_radius=15, width=2)
-		pg.draw.line(self.display, (100, 100, 100), (rect.x+25, question_rect.bottom+10), (rect.right-25, question_rect.bottom+10))
 		self.display.blit(self.question, question_rect)
-		for en, (name, texture) in enumerate(self.options.items()):
-			rect = pg.Rect((rect.centerx-texture.get_width()/2, rect.top+rect.h/(len(self.options.keys())+1*en)), texture.get_size())
-			if rect.collidepoint(pg.mouse.get_pos()):
-				self.display.blit(self.options_hover[name], rect)
-			else:
-				self.display.blit(texture, rect)
+		for enum, option_group in enumerate(self.option_groups):
+			options = option_group['options']
+			
+			pg.draw.line(self.display, (100, 100, 100), (rect.x+25, top), (rect.right-25, top))
+			question = option_group['question']
+			self.display.blit(question, (rect.centerx-question.get_width()/2, top))
+			top += question.get_height()
+			for en, (name, texture) in enumerate(options.items()):
+				pos = pg.Rect((rect.centerx-texture.get_width()/2, top), texture.get_size())
+				if pos.collidepoint(pg.mouse.get_pos()):
+					self.display.blit(self.option_groups_hover[enum]['options'][name], pos)
+				else:
+					self.display.blit(texture, pos)
+				top = top+10+texture.get_height()
 
-	def eventHandler(self):
-		pass
+	def eventHandler(self, events):
+		for event in events:
+			if event.type == MOUSEBUTTONUP:
+				rect = pg.Rect(self.pos, (self.question.get_width() + 200, self.question.get_height() + sum(
+					50 * len(option_group['options'].values()) for option_group in self.option_groups)))
+				question_rect = self.question.get_rect(centerx=rect.centerx, top=rect.top)
+				question_rect.bottom += 10
+				top = question_rect.bottom
+				pg.draw.rect(self.display, (10, 10, 10), rect, border_radius=15)
+				pg.draw.rect(self.display, (100, 100, 100), rect, border_radius=15, width=2)
+				for enum, option_group in enumerate(self.option_groups):
+					options = option_group['options']
+					
+					pg.draw.line(self.display, (100, 100, 100), (rect.x + 25, top), (rect.right - 25, top))
+					self.display.blit(self.question, question_rect)
+					for en, (name, texture) in enumerate(options.items()):
+						pos = pg.Rect((rect.centerx - texture.get_width() / 2, top), texture.get_size())
+						if pos.collidepoint(pg.mouse.get_pos()) and event.button == 0:
+							pass
+						else:
+							top = top + 10 + texture.get_height()
+				# try:
+				# 	self.main.projects.append(Project(self.main, (32, 32)))
+				# 	self.main.selected = len(self.main.projects) - 1
+				# except IOError:
+				# 	pass
 
 
 if __name__ == '__main__':
