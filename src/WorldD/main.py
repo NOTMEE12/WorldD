@@ -317,12 +317,14 @@ class Project:
 			self.grid = {tuple(map(int, pos.split(','))): tile for pos, tile in data['grid'].items()}
 		
 		def load_v0_13():
-			print(data['tile-size'])
 			self.tile_size = pg.Vector2(data['tile-size'])
-			print(self.tile_size)
-			self.tiles = {name: TileGroup(self, name, {tile: pos for tile, pos in tile_group['tiles'].items()}, pos=tile_group['pos']) for
-			              name, tile_group in data['data'].items()}
-			print(self.tile_size)
+			self.tiles = {
+				name: TileGroup(self, name, {tile: pos for tile, pos in tile_group['tiles'].items()},
+				                pos=tile_group['pos'], _draw_matrix=tile_group['_draw_matrix'],
+				                _matrix=tile_group['_matrix']
+				                )
+				for name, tile_group in data['data'].items()
+			}
 			self.grid = {tuple(map(int, map(float, pos.split(',')))): tile for pos, tile in data['grid'].items()}
 			self.sprite_sheet = self.SpriteSheet(data['img'], self.display, self)
 		
@@ -353,27 +355,29 @@ class Project:
 		if self.destination is None:
 			if self.path is None or self.path[-4:] == '.png':
 				self.destination = filedialog.asksaveasfile('a+', defaultextension='.world')
-				self.path = self.destination.name
+				if self.destination is not None:
+					self.path = self.destination.name
 			else:
 				self.destination = open(self.path, 'a+')
 		else:
 			print(self.destination)
-		save_data = json.dumps(
-			{
-				'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
-				'data': {name: tile_group.data for name, tile_group in self.tiles.items()},
-				'img': self.sprite_sheet.path,
-				'tile-size': list(self.tile_size),
-				'version': __version__
-			},
-		)
-		self.destination.seek(0)
-		self.destination.truncate(0)
-		self.destination.write(save_data)
-		self.destination.close()
-		self.destination = None
-		if self.path not in self.main.recent:
-			self.main.recent.append(self.path)
+		if self.path is not None and self.path[-4:] != '.png':
+			save_data = json.dumps(
+				{
+					'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
+					'data': {name: tile_group.data for name, tile_group in self.tiles.items()},
+					'img': self.sprite_sheet.path,
+					'tile-size': list(self.tile_size),
+					'version': __version__
+				},
+			)
+			self.destination.seek(0)
+			self.destination.truncate(0)
+			self.destination.write(save_data)
+			self.destination.close()
+			self.destination = None
+			if self.path not in self.main.recent:
+				self.main.recent.append(self.path)
 		
 	def display_hover_tile(self, pos=None, tile=None):
 		if self.selected_tile is not None or tile is not None:
@@ -871,7 +875,7 @@ class Project:
 
 class TileGroup:
 	
-	def __init__(self, project: Project, name, tiles, pos=None):
+	def __init__(self, project: Project, name, tiles, pos=None, _draw_matrix=True, _matrix=None):
 		self.project = project
 		self.display = project.display
 		self.header, self.text = self.project.header, self.project.text
@@ -881,9 +885,9 @@ class TileGroup:
 			self.pos = pg.Vector2(project.sidebar.centerx, project.main.Options.TOP_OFFSET+50)
 		else:
 			self.pos = pg.Vector2(pos)
-		self._matrix = {}
+		self._matrix = _matrix if _matrix is not None else {}
 		self.selected_edit = None
-		self._draw_matrix = True
+		self._draw_matrix = _draw_matrix
 	
 	def items(self):
 		return self.tiles.items()
@@ -1057,7 +1061,8 @@ class TileGroup:
 	
 	@property
 	def data(self):
-		return {'tiles': {name: tile for name, tile in self.tiles.items()}, 'pos': list(self.pos)}
+		return {'tiles': {name: tile for name, tile in self.tiles.items()}, 'pos': list(self.pos),
+		        '_draw_matrix': self._draw_matrix, '_matrix': self._matrix}
 
 
 class Welcome:
@@ -1164,11 +1169,11 @@ class Popup:
 		self.DATA = [
 			{
 				'question': "Type",
-				'options': ['isometric', '2(.5)D']
+				'options': ['! isometric (no support for now) !', '2(.5)D']
 			},
 			{
 				'question': "Tile Size",
-				'options': ['8x8', '16x16', '24x24', '32x32 (default)', '48x48', '64x64']
+				'options': ['8x8', '16x16', '24x24', '32x32', '48x48', '64x64']
 			 }
 		]
 		self.option_groups = \
@@ -1191,11 +1196,12 @@ class Popup:
 						}
 				} for option_group in self.DATA
 			]
-		self.answer = None
+		self.answer = {option_group['question']: None for option_group in self.DATA}
 		self.pos = pg.Vector2((self.display.get_width()-self.question.get_width())/2-100, self.display.get_height()/3)
 	
 	def render(self):
-		rect = pg.Rect(self.pos, (self.question.get_width() + 200, self.question.get_height() + sum(70 + 50 * len(option_group['options'].values()) for option_group in self.option_groups)))
+		h = self.question.get_height() + sum(70 + 50 * len(option_group['options'].values()) for option_group in self.option_groups)
+		rect = pg.Rect((self.pos.x, self.pos.y - h/4), (self.question.get_width() + 200, h))
 		question_rect = self.question.get_rect(centerx=rect.centerx, top=rect.top)
 		question_rect.bottom += 10
 		top = question_rect.bottom
@@ -1211,38 +1217,54 @@ class Popup:
 			top += question.get_height()
 			for en, (name, texture) in enumerate(options.items()):
 				pos = pg.Rect((rect.centerx-texture.get_width()/2, top), texture.get_size())
-				if pos.collidepoint(pg.mouse.get_pos()):
+				if pos.collidepoint(pg.mouse.get_pos()) or self.answer[self.DATA[enum]['question']] == name:
 					self.display.blit(self.option_groups_hover[enum]['options'][name], pos)
 				else:
 					self.display.blit(texture, pos)
 				top = top+10+texture.get_height()
+		if any(self.answer[key] is None for key in self.answer.keys()):
+			pg.draw.rect(self.display, (30,) * 3, pg.Rect(rect.x + 25, rect.bottom - 55, rect.w - 50, 50))
+			pg.draw.rect(self.display, (40,) * 3, pg.Rect(rect.x + 25, rect.bottom - 55, rect.w - 50, 5))
+			pg.draw.rect(self.display, (40,) * 3, pg.Rect(rect.x + 25, rect.bottom - 55, 5, 50))
+			text = self.small_header.render('OK', True, (60,)*3)
+		else:
+			pg.draw.rect(self.display, (60,) * 3, pg.Rect(rect.x + 25, rect.bottom - 55, rect.w - 50, 50))
+			pg.draw.rect(self.display, (80,) * 3, pg.Rect(rect.x + 25, rect.bottom - 55, rect.w - 50, 5))
+			pg.draw.rect(self.display, (80,) * 3, pg.Rect(rect.x + 25, rect.bottom - 55, 5, 50))
+			text = self.small_header.render('OK', True, (120,)*3)
+		self.display.blit(text, (rect.x + 25 + (rect.w - 50 - text.get_width())/2, rect.bottom - 50))
 
 	def eventHandler(self, events):
 		for event in events:
 			if event.type == MOUSEBUTTONUP:
-				rect = pg.Rect(self.pos, (self.question.get_width() + 200, self.question.get_height() + sum(
-					50 * len(option_group['options'].values()) for option_group in self.option_groups)))
-				question_rect = self.question.get_rect(centerx=rect.centerx, top=rect.top)
-				question_rect.bottom += 10
-				top = question_rect.bottom
-				pg.draw.rect(self.display, (10, 10, 10), rect, border_radius=15)
-				pg.draw.rect(self.display, (100, 100, 100), rect, border_radius=15, width=2)
-				for enum, option_group in enumerate(self.option_groups):
-					options = option_group['options']
-					
-					pg.draw.line(self.display, (100, 100, 100), (rect.x + 25, top), (rect.right - 25, top))
-					self.display.blit(self.question, question_rect)
-					for en, (name, texture) in enumerate(options.items()):
-						pos = pg.Rect((rect.centerx - texture.get_width() / 2, top), texture.get_size())
-						if pos.collidepoint(pg.mouse.get_pos()) and event.button == 0:
-							pass
-						else:
+				if event.button == 1:
+					h = self.question.get_height() + sum(
+						70 + 50 * len(option_group['options'].values()) for option_group in self.option_groups)
+					rect = pg.Rect((self.pos.x, self.pos.y - h / 4), (self.question.get_width() + 200, h))
+					question_rect = self.question.get_rect(centerx=rect.centerx, top=rect.top)
+					question_rect.bottom += 10
+					top = question_rect.bottom
+					for enum, option_group in enumerate(self.option_groups):
+						options = option_group['options']
+						
+						top += option_group['question'].get_height()
+						for en, (name, texture) in enumerate(options.items()):
+							pos = pg.Rect((rect.centerx - texture.get_width() / 2, top), texture.get_size())
+							if pos.collidepoint(event.pos):
+								self.answer[self.DATA[enum]['question']] = name
+								break
 							top = top + 10 + texture.get_height()
-				# try:
-				# 	self.main.projects.append(Project(self.main, (32, 32)))
-				# 	self.main.selected = len(self.main.projects) - 1
-				# except IOError:
-				# 	pass
+					if pg.Rect(rect.x + 25, rect.bottom - 55, rect.w - 50, 50).collidepoint(event.pos) and \
+							all(self.answer[key] is not None for key in self.answer.keys()):
+						try:
+							self.main.projects.append(Project(self.main, list(map(int, self.answer['Tile Size'].split('x')))))
+							self.main.selected = len(self.main.projects) - 1
+							del self.main.popups[-1]
+						except IOError:
+							pass
+			elif event.type == KEYDOWN:
+				if event.key == K_ESCAPE:
+					del self.main.popups[-1]
 
 
 if __name__ == '__main__':
