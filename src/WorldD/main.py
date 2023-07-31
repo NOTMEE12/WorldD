@@ -370,7 +370,7 @@ class Project:
 				self.path = self.destination.name
 			else:
 				self.destination = open(self.path)
-		tile_size, sp_sheet, pure_tile_groups, grid = load(self.destination)
+		tile_size, sp_sheet, pure_tile_groups, self.grid = load(self.destination)
 		self.tile_size = pg.Vector2(tile_size)
 		self.sprite_sheet = self.SpriteSheet(sp_sheet, self.display, self)
 		self.tiles = {name: TileGroup(self, name, tile_group.tiles, tile_group.pos) for name, tile_group in pure_tile_groups.items()}
