@@ -17,28 +17,35 @@ __version__ = '0.13'
 PureTileGroup = TypeVar('PureTileGroup')
 
 
-def load(path: str | object) -> \
-		[tuple[int, int] | list[int, int], str, dict[str, PureTileGroup], dict[tuple[int, int], tuple[str, str]]]:
+def load(path: str | object) -> tuple[list[int, int], str, dict[str, PureTileGroup], list[dict[tuple[int, int], list[str, str]]]]:
 	""":returns: tile size, sprite sheet path, tiles, grid"""
 	if type(path) is str:
 		path = open(path, 'rb')
 	
-	def load_v0_12() -> \
-			[tuple[int, int] | list[int, int], str, dict[str, PureTileGroup], dict[tuple[int, int], tuple[str, str]]]:
+	def load_v0_12():
 		sprite_sheet: str = data['img']
-		tiles = {'all': PureTileGroup('all', {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(',')))
+		tiles: dict[str, PureTileGroup] = {'all': PureTileGroup('all', {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(',')))
 		                                      for pos, tile in data['data'].items()})}
-		grid: dict[tuple[int, int], tuple[str, str]] = {tuple(map(int, pos.split(','))): tile for pos, tile in
-		                                                data['grid'].items()}
-		return (32, 32), sprite_sheet, tiles, grid
+		grid: list[dict[tuple[int, int], list[str, str]]] = \
+			[
+				{tuple(map(int, pos.split(','))): list(tile) for pos, tile in data['grid'].items()}
+			]
+		tile_size: list[int, int] = [32, 32]
+		return tile_size, sprite_sheet, tiles, grid
 	
-	def load_v0_13() -> \
-			[tuple[int, int] | list[int, int], str, dict[str, PureTileGroup], dict[tuple[int, int], tuple[str, str]]]:
-		tile_size = data['tile-size']
-		tiles = {name: PureTileGroup(name, {tile: pos for tile, pos in tile_group['tiles'].items()}, tile_group['pos'])
-		         for name, tile_group in data['data'].items()}
-		grid = {tuple(map(int, map(float, pos.split(',')))): tile for pos, tile in data['grid'].items()}
-		sprite_sheet = data['img']
+	def load_v0_13():
+		tile_size: list[int, int] = data['tile-size']
+		tiles: dict[str, PureTileGroup] = \
+			{
+				name: PureTileGroup(name, {tile: pos for tile, pos in tile_group['tiles'].items()}, tile_group['pos'])
+				for name, tile_group in data['data'].items()
+			}
+		grid: list[dict[tuple[int, int], list[str, str]]] = \
+			[
+				{tuple(map(int, map(float, pos.split(',')))): list(tile) for pos, tile in layer.items()}
+				for layer in data['grid']
+				]
+		sprite_sheet: str = data['img']
 		return tile_size, sprite_sheet, tiles, grid
 	
 	data = json.load(path)
@@ -280,11 +287,12 @@ class Main:
 			self.clock.tick(self.Options.FPS)
 			if self.eventHandler():
 				return 1
-			if self.projects[self.selected].path != 'Welcome':
-				tiles = f'{len(self.projects[self.selected].grid.keys())} tiles | '
+			project = self.projects[self.selected]
+			if project.path != 'Welcome':
+				tiles = f'{len(project.grid[project.current_layer].keys())} tiles | '
 			else:
 				tiles = ''
-			path = self.projects[self.selected].path
+			path = project.path
 			pg.display.set_caption(f'{path} - WorldD | {tiles}{self.clock.get_fps():.2f} FPS')
 
 
@@ -317,7 +325,8 @@ class Project:
 		self.destination = None
 		self.path = None
 		self.tiles: dict[str, TileGroup] = {'all': TileGroup(self, 'all', {})}
-		self.grid = {}
+		self.grid = [{}]
+		self.current_layer = 0
 		new_project = load is False
 		load_project = load is True
 		recent_project = load is not bool
@@ -371,10 +380,9 @@ class Project:
 			else:
 				self.destination = open(self.path)
 		tile_size, sp_sheet, pure_tile_groups, self.grid = load(self.destination)
-		self.tile_size = pg.Vector2(tile_size)
+		self.tile_size = pg.Vector2(tuple(tile_size))
 		self.sprite_sheet = self.SpriteSheet(sp_sheet, self.display, self)
 		self.tiles = {name: TileGroup(self, name, tile_group.tiles, tile_group.pos) for name, tile_group in pure_tile_groups.items()}
-		print(self.tiles)
 		self.destination.close()
 		self.destination = None
 	
@@ -391,7 +399,8 @@ class Project:
 		if self.path is not None and self.path[-4:] != '.png':
 			save_data = json.dumps(
 				{
-					'grid':  {f"{pos[0]},{pos[1]}": tile for pos, tile in self.grid.items()},
+					'grid':  [{f"{pos[0]},{pos[1]}": tile for pos, tile in layer.items()} for layer in self.grid],
+					'current-layer': self.current_layer,
 					'data': {name: tile_group.data for name, tile_group in self.tiles.items()},
 					'img': self.sprite_sheet.path,
 					'tile-size': list(self.tile_size),
@@ -405,7 +414,7 @@ class Project:
 			self.destination = None
 			if self.path not in self.main.recent:
 				self.main.recent.append(self.path)
-        
+    
 	def display_hover_tile(self, pos=None, tile=None):
 		if self.selected_tile is not None or tile is not None:
 			dis_rect = self.display.get_rect()
@@ -552,8 +561,8 @@ class Project:
 		for x_ in range(left, right):
 			for y_ in range(top, bottom):
 				pos = (x_, y_)
-				if pos in self.grid:
-					data = self.grid[pos]
+				if pos in self.grid[self.current_layer]:
+					data = self.grid[self.current_layer][pos]
 					if data[0] in self.tiles:
 						tile_group = self.tiles[data[0]]
 						name = data[1]
@@ -566,9 +575,9 @@ class Project:
 									self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
 								grid.append((self.tile_cache[tile], (x, y)))
 						else:
-							del self.grid[pos]
+							del self.grid[self.current_layer][pos]
 					else:
-						del self.grid[pos]
+						del self.grid[self.current_layer][pos]
 		self.display.fblits(grid)
 	
 	def render(self):
@@ -612,7 +621,7 @@ class Project:
 		if self.selected_tile is not None:
 			if group is None or name is None:
 				group, name = self._selected_tile
-			self.grid[pos] = [group, name]
+			self.grid[self.current_layer][pos] = [group, name]
 		else:
 			pass
 	
