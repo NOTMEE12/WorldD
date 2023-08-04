@@ -27,6 +27,8 @@ MATRIX-MID-LEFT         = ['[4]', '']
 MATRIX-BOT-RIGHT        = ['[3]', '']
 MATRIX-BOT-MID          = ['[2]', '']
 MATRIX-BOT-LEFT         = ['[1]', '']
+NEW-LAYER               = ['right', '']
+PREVIOUS-LAYER          = ['left', '']
 # tools
 RECT                    = ['x', '']
 BRUSH                   = ['w', '']

@@ -148,6 +148,8 @@ class Bindings:
 		self.MATRIX_BOT_RIGHT = Key(*bindings['MATRIX-BOT-RIGHT'])
 		self.MATRIX_BOT_MID = Key(*bindings['MATRIX-BOT-MID'])
 		self.MATRIX_BOT_LEFT = Key(*bindings['MATRIX-BOT-LEFT'])
+		self.NEW_LAYER = Key(*bindings['NEW-LAYER'])
+		self.PREVIOUS_LAYER = Key(*bindings['PREVIOUS-LAYER'])
 
 
 class Options:
@@ -320,13 +322,12 @@ class Project:
 		self.rect = [False, pg.Rect(0, 0, 0, 0)]
 		
 		"""====[ CONFIG ]===="""
-		
-		"""====[ CUSTOMIZABLE ]===="""
-		self.destination = None
-		self.path = None
 		self.tiles: dict[str, TileGroup] = {'all': TileGroup(self, 'all', {})}
 		self.grid = [{}]
 		self.current_layer = 0
+		self.layers_vis = Layers(self.display, self)
+		self.destination = None
+		self.path = None
 		new_project = load is False
 		load_project = load is True
 		recent_project = load is not bool
@@ -356,14 +357,16 @@ class Project:
 				self.path = file.name
 				self.load(file.name)
 		self._selected_tile = None
+		self.tile_size = pg.Vector2(tile_size)
+		self.zoom = 1
+		
+		"""====[ CUSTOMIZABLE ]===="""
 		self.grid_color = (255, 255, 255)
 		self.selected_tile_color = (255, 255, 255)
 		self.selected_matrix_selection_color = (255, 100, 100)
 		self.matrix_full_color = (50, 255, 50)
 		self.window_outline_color = (128, 128, 128)
 		self.selected_window_outline_color = (255, 255, 255)
-		self.tile_size = pg.Vector2(tile_size)
-		self.zoom = 1
 		
 		"""====[ CACHED ]===="""
 		self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
@@ -561,23 +564,30 @@ class Project:
 		for x_ in range(left, right):
 			for y_ in range(top, bottom):
 				pos = (x_, y_)
-				if pos in self.grid[self.current_layer]:
-					data = self.grid[self.current_layer][pos]
-					if data[0] in self.tiles:
-						tile_group = self.tiles[data[0]]
-						name = data[1]
-						if name in tile_group:
-							tile = tuple(tile_group[name])
-							x = self.bold.x + size[0] * pos[0]
-							y = self.bold.y + size[1] * pos[1]
-							if vis_rect.collidepoint(x, y):
-								if tile not in self.tile_cache:
-									self.tile_cache[tile] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile), size).convert_alpha()
-								grid.append((self.tile_cache[tile], (x, y)))
+				tile = None
+				x, y = None, None
+				for layer in reversed(self.grid):
+					if pos in layer:
+						data = layer[pos]
+						if data[0] in self.tiles:
+							tile_group = self.tiles[data[0]]
+							name = data[1]
+							if name in tile_group:
+								tile_name = tuple(tile_group[name])
+								x = self.bold.x + size[0] * pos[0]
+								y = self.bold.y + size[1] * pos[1]
+								if vis_rect.collidepoint(x, y):
+									if tile_name not in self.tile_cache:
+										self.tile_cache[tile_name] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile_name), size).convert_alpha()
+									tile = self.tile_cache[tile_name]
+									break
+							else:
+								del layer[pos]
 						else:
-							del self.grid[self.current_layer][pos]
-					else:
-						del self.grid[self.current_layer][pos]
+							del layer[pos]
+				if tile is not None:
+					grid.append((tile, (x, y)))
+				
 		self.display.fblits(grid)
 	
 	def render(self):
@@ -599,6 +609,7 @@ class Project:
 		"""====[ SIDEBAR ]===="""
 		pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
 		self.sprite_sheet.render(self.tile_size)
+		self.layers_vis.visualize()
 		for tile_group in self.tiles.values():
 			tile_group.draw()
 	
@@ -705,6 +716,16 @@ class Project:
 					if self.selected_tile is not None:
 						del self.tiles[self.raw_selected_tile[0]][self.raw_selected_tile[1]]
 						self.selected_tile = None
+				elif event == self.main.Bindings.NEW_LAYER:
+					print("new layer")
+					self.current_layer += 1
+					if len(self.grid) <= self.current_layer:
+						print(len(self.grid), self.current_layer)
+						self.grid.append({})
+				elif event == self.main.Bindings.PREVIOUS_LAYER:
+					print("previous layer")
+					if self.current_layer > 0:
+						self.current_layer -= 1
 			elif event.type == KEYUP:
 				if event == self.main.Bindings.RECT:
 					if self.rect[0]:
@@ -766,6 +787,7 @@ class Project:
 					self.tile_cache = {}
 					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
 					                       self.offset[1] * self.zoom - self.tile_size[1])
+		self.layers_vis.event_handler(self.main.events)
 		for tile_group in self.tiles.copy().values():
 			tile_group.eventHandler(self.main.events)
 		self.sprite_sheet.eventHandler(self.main.events)
@@ -1348,6 +1370,56 @@ class Popup:
 				if event.key == K_ESCAPE:
 					del self.main.popups[-1]
 
+
+class Layers:
+	
+	def __init__(self, display: pg.Surface, project: Project, pos: tuple[int, int] = None):
+		if pos is None:
+			pos = display.get_width()//15, display.get_height()//1.25
+		self.display: pg.Surface = display
+		self.project: Project = project
+		self.header: pg.Font = project.header
+		self.text: pg.Font = project.text
+		self.pos: pg.Vector2 = pg.Vector2(pos)
+		self.scroll: int = 0
+		self.selected: bool = False
+		
+	def visualize(self) -> None:
+		cl = self.project.window_outline_color if not self.selected else self.project.selected_window_outline_color
+		
+		layers: int = len(self.project.grid)
+		height: int = min(layers, 5) * 50 + 50
+		texture: pg.Surface = pg.Surface((350, height))
+		text: pg.Surface = self.header.render("Layers", True, cl)
+		texture.blit(text, ((texture.get_width() - text.get_width())/2, 10))
+		pg.draw.line(texture, cl, (10, 10 + text.get_height()), (texture.get_width()-10, 10 + text.get_height()))
+		
+		y = 20 + text.get_height()
+		for layer in range(max(0, self.project.current_layer), layers):
+			layer_cl = (0, 0, 0)
+			text_cl = (200, 200, 200)
+			if layer == self.project.current_layer:
+				layer_cl, text_cl = text_cl, layer_cl
+			text: pg.Surface = self.text.render(f"layer {layer}", True, text_cl, layer_cl)
+			pg.draw.rect(texture, layer_cl, (10, y, texture.get_width() - 10, 30))
+			texture.blit(text, (10, y + 5))
+			y += 40
+		
+		pg.draw.rect(self.display, cl, (self.pos-(2, 2), (350+4, height+4)), border_radius=15)
+		self.display.blit(texture, self.pos)
+	
+	def event_handler(self, events):
+		for event in events:
+			if event.type == MOUSEMOTION:
+				if event.buttons[0]:
+					layers: int = len(self.project.grid)
+					height: int = layers * 50 + 150
+					if pg.Rect(self.pos, (350, height)).collidepoint(event.pos):
+						self.pos += event.rel
+						self.selected = True
+			if event.type == MOUSEBUTTONUP:
+				self.selected = False
+	
 
 if __name__ == '__main__':
 	Main().run()
