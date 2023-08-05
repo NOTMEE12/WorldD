@@ -1401,7 +1401,7 @@ class Layers:
 			if layer == self.project.current_layer:
 				layer_cl, text_cl = text_cl, layer_cl
 			text: pg.Surface = self.text.render(f"layer {layer}", True, text_cl, layer_cl)
-			pg.draw.rect(texture, layer_cl, (10, y, texture.get_width() - 10, 30))
+			pg.draw.rect(texture, layer_cl, (10, y, texture.get_width() - 10, 40))
 			texture.blit(text, (10, y + 5))
 			y += 40
 		
