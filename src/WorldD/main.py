@@ -150,6 +150,7 @@ class Bindings:
 		self.MATRIX_BOT_LEFT = Key(*bindings['MATRIX-BOT-LEFT'])
 		self.NEW_LAYER = Key(*bindings['NEW-LAYER'])
 		self.PREVIOUS_LAYER = Key(*bindings['PREVIOUS-LAYER'])
+		self.DELETE_LAYER = Key(*bindings['DELETE-LAYER'])
 
 
 class Options:
@@ -726,6 +727,9 @@ class Project:
 					print("previous layer")
 					if self.current_layer > 0:
 						self.current_layer -= 1
+				elif event == self.main.Bindings.DELETE_LAYER:
+					self.grid.pop(self.current_layer)
+					self.current_layer -= 1
 			elif event.type == KEYUP:
 				if event == self.main.Bindings.RECT:
 					if self.rect[0]:

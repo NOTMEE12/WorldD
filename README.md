@@ -25,7 +25,7 @@
 - `right arrow` - new layer / change selection to the layer above
 - `left arrow` - change selection to the layer below, you can't select layers below 0.
 - `SHIFT + R` - rename layer
-- `SHIFT + DELETE` - delete layer
+- `SHIFT + DELETE` - deletes current layer
 
 ---
 ### Important Info
