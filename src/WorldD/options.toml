@@ -30,6 +30,7 @@ MATRIX-BOT-LEFT         = ['[1]', '']
 NEW-LAYER               = ['right', '']
 PREVIOUS-LAYER          = ['left', '']
 DELETE-LAYER            = ['delete', 'shift']
+RENAME-LAYER            = ['R', 'CTRL']
 # tools
 RECT                    = ['x', '']
 BRUSH                   = ['w', '']

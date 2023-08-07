@@ -17,7 +17,11 @@ __version__ = '0.13'
 PureTileGroup = TypeVar('PureTileGroup')
 
 
-def load(path: str | object) -> tuple[list[int, int], str, dict[str, PureTileGroup], list[dict[tuple[int, int], list[str, str]]]]:
+TILES = dict[str, PureTileGroup]
+GRID = list[dict[tuple[int, int], list[str, str]]]
+
+
+def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
 	""":returns: tile size, sprite sheet path, tiles, grid"""
 	if type(path) is str:
 		path = open(path, 'rb')
@@ -26,12 +30,13 @@ def load(path: str | object) -> tuple[list[int, int], str, dict[str, PureTileGro
 		sprite_sheet: str = data['img']
 		tiles: dict[str, PureTileGroup] = {'all': PureTileGroup('all', {tile: tuple(map(int, pos.lstrip('(').rstrip(')').split(',')))
 		                                      for pos, tile in data['data'].items()})}
-		grid: list[dict[tuple[int, int], list[str, str]]] = \
+		grid: GRID = \
 			[
 				{tuple(map(int, pos.split(','))): list(tile) for pos, tile in data['grid'].items()}
 			]
 		tile_size: list[int, int] = [32, 32]
-		return tile_size, sprite_sheet, tiles, grid
+		layer_names = [f'layer {layer+1}' for layer in range(len(grid))]
+		return tile_size, sprite_sheet, tiles, grid, layer_names
 	
 	def load_v0_13():
 		tile_size: list[int, int] = data['tile-size']
@@ -40,13 +45,14 @@ def load(path: str | object) -> tuple[list[int, int], str, dict[str, PureTileGro
 				name: PureTileGroup(name, {tile: pos for tile, pos in tile_group['tiles'].items()}, tile_group['pos'])
 				for name, tile_group in data['data'].items()
 			}
-		grid: list[dict[tuple[int, int], list[str, str]]] = \
+		grid: GRID = \
 			[
 				{tuple(map(int, map(float, pos.split(',')))): list(tile) for pos, tile in layer.items()}
 				for layer in data['grid']
 				]
 		sprite_sheet: str = data['img']
-		return tile_size, sprite_sheet, tiles, grid
+		layer_names = [layer for layer in data['layer-names']]
+		return tile_size, sprite_sheet, tiles, grid, layer_names
 	
 	data = json.load(path)
 	if "version" not in data:
@@ -151,6 +157,7 @@ class Bindings:
 		self.NEW_LAYER = Key(*bindings['NEW-LAYER'])
 		self.PREVIOUS_LAYER = Key(*bindings['PREVIOUS-LAYER'])
 		self.DELETE_LAYER = Key(*bindings['DELETE-LAYER'])
+		self.RENAME_LAYER = Key(*bindings['RENAME-LAYER'])
 
 
 class Options:
@@ -323,9 +330,11 @@ class Project:
 		self.rect = [False, pg.Rect(0, 0, 0, 0)]
 		
 		"""====[ CONFIG ]===="""
+		self.renaming = False
 		self.tiles: dict[str, TileGroup] = {'all': TileGroup(self, 'all', {})}
 		self.grid = [{}]
 		self.current_layer = 0
+		self.layer_names = ['Layer 0']
 		self.layers_vis = Layers(self.display, self)
 		self.destination = None
 		self.path = None
@@ -374,7 +383,7 @@ class Project:
 		                       self.offset[1] * self.zoom - self.tile_size[1])
 		self.tile_cache = {}
 	
-	def load(self, path=None):
+	def load(self, path=None):  
 		if path is not None:
 			self.path = path
 		if self.destination is None:
@@ -383,7 +392,7 @@ class Project:
 				self.path = self.destination.name
 			else:
 				self.destination = open(self.path)
-		tile_size, sp_sheet, pure_tile_groups, self.grid = load(self.destination)
+		tile_size, sp_sheet, pure_tile_groups, self.grid, self.layer_names = load(self.destination)
 		self.tile_size = pg.Vector2(tuple(tile_size))
 		self.sprite_sheet = self.SpriteSheet(sp_sheet, self.display, self)
 		self.tiles = {name: TileGroup(self, name, tile_group.tiles, tile_group.pos) for name, tile_group in pure_tile_groups.items()}
@@ -405,6 +414,7 @@ class Project:
 				{
 					'grid':  [{f"{pos[0]},{pos[1]}": tile for pos, tile in layer.items()} for layer in self.grid],
 					'current-layer': self.current_layer,
+					'layer-names': self.layer_names,
 					'data': {name: tile_group.data for name, tile_group in self.tiles.items()},
 					'img': self.sprite_sheet.path,
 					'tile-size': list(self.tile_size),
@@ -684,52 +694,65 @@ class Project:
 	def eventHandler(self):
 		for event in self.main.events:
 			if event.type == KEYDOWN:
-				if event == self.main.Bindings.RECT:
-					self.tool = 'rect'
-					self.rect[0] = False
-					self.rect[1].topleft = (0, 0)
-					self.rect[1].size = (0, 0)
-				if event == self.main.Bindings.AUTOTILE_RECT:
-					self.tool = 'autotile-rect'
-					self.rect[0] = False
-					self.rect[1].topleft = (0, 0)
-					self.rect[1].size = (0, 0)
-				if event == self.main.Bindings.BRUSH:
-					self.tool = 'brush'
-					self.rect = [False, pg.Rect(0, 0, 0, 0)]
-				if event == self.main.Bindings.SCALE_TILE_UP:
-					self.tile_size *= 2
-					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
-					                       self.offset[1] * self.zoom - self.tile_size[1])
-				elif event == self.main.Bindings.SCALE_TILE_DOWN:
-					self.tile_size /= 2
-					self.tile_size[0] = max(1.0, self.tile_size[0])
-					self.tile_size[1] = max(1.0, self.tile_size[1])
-					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
-					                       self.offset[1] * self.zoom - self.tile_size[1])
-				elif event == self.main.Bindings.SAVE:
-					self.save()
-				elif event == self.main.Bindings.LOAD:
-					self.path = None
-					self.destination = None
-					self.load()
-				elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
-					if self.selected_tile is not None:
-						del self.tiles[self.raw_selected_tile[0]][self.raw_selected_tile[1]]
-						self.selected_tile = None
-				elif event == self.main.Bindings.NEW_LAYER:
-					print("new layer")
-					self.current_layer += 1
-					if len(self.grid) <= self.current_layer:
-						print(len(self.grid), self.current_layer)
-						self.grid.append({})
-				elif event == self.main.Bindings.PREVIOUS_LAYER:
-					print("previous layer")
-					if self.current_layer > 0:
+				if self.renaming:
+					if event == self.main.Bindings.CANCEL_SELECTION or event == self.main.Bindings.SELECTION_ACCEPT:
+						self.renaming = False
+					elif event.key == K_BACKSPACE:
+						self.layer_names[self.current_layer] = self.layer_names[self.current_layer][0:-1]
+					elif event.unicode.isascii():
+						self.layer_names[self.current_layer] += event.unicode
+						print(self.layer_names[self.current_layer], event.unicode)
+				else:
+					if event == self.main.Bindings.RECT:
+						self.tool = 'rect'
+						self.rect[0] = False
+						self.rect[1].topleft = (0, 0)
+						self.rect[1].size = (0, 0)
+					if event == self.main.Bindings.AUTOTILE_RECT:
+						self.tool = 'autotile-rect'
+						self.rect[0] = False
+						self.rect[1].topleft = (0, 0)
+						self.rect[1].size = (0, 0)
+					if event == self.main.Bindings.BRUSH:
+						self.tool = 'brush'
+						self.rect = [False, pg.Rect(0, 0, 0, 0)]
+					if event == self.main.Bindings.SCALE_TILE_UP:
+						self.tile_size *= 2
+						self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
+						                       self.offset[1] * self.zoom - self.tile_size[1])
+					elif event == self.main.Bindings.SCALE_TILE_DOWN:
+						self.tile_size /= 2
+						self.tile_size[0] = max(1.0, self.tile_size[0])
+						self.tile_size[1] = max(1.0, self.tile_size[1])
+						self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
+						                       self.offset[1] * self.zoom - self.tile_size[1])
+					elif event == self.main.Bindings.SAVE:
+						self.save()
+					elif event == self.main.Bindings.LOAD:
+						self.path = None
+						self.destination = None
+						self.load()
+					elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
+						if self.selected_tile is not None:
+							del self.tiles[self.raw_selected_tile[0]][self.raw_selected_tile[1]]
+							self.selected_tile = None
+					elif event == self.main.Bindings.NEW_LAYER:
+						print("new layer")
+						self.current_layer += 1
+						if len(self.grid) <= self.current_layer:
+							print(len(self.grid), self.current_layer)
+							self.grid.append({})
+							self.layer_names.append(f"layer {len(self.grid)}")
+					elif event == self.main.Bindings.PREVIOUS_LAYER:
+						print("previous layer")
+						if self.current_layer > 0:
+							self.current_layer -= 1
+					elif event == self.main.Bindings.DELETE_LAYER:
+						self.grid.pop(self.current_layer)
+						self.layer_names.pop(self.current_layer)
 						self.current_layer -= 1
-				elif event == self.main.Bindings.DELETE_LAYER:
-					self.grid.pop(self.current_layer)
-					self.current_layer -= 1
+					elif event == self.main.Bindings.RENAME_LAYER:
+						self.renaming = True
 			elif event.type == KEYUP:
 				if event == self.main.Bindings.RECT:
 					if self.rect[0]:
@@ -1007,17 +1030,17 @@ class PureTileGroup:
 
 class TileGroup(PureTileGroup):
 	
-	def __init__(self, project: Project, name, tiles, pos=None, _draw_matrix=True, _matrix=None):
+	def __init__(self, project: Project, name, tiles, pos=None, _draw_matrix=False):
 		self.project = project
 		self.display = project.display
 		self.header, self.text = self.project.header, self.project.text
 		self.name = name
-		if type(pos) is not tuple or type(pos) is not list or type(pos) is not pg.Vector2:
+		if type(pos) is not tuple and type(pos) is not list and type(pos) is not pg.Vector2:
 			self.pos = pg.Vector2(project.sidebar.centerx, project.main.Options.TOP_OFFSET + 50)
 		else:
 			self.pos = pg.Vector2(pos)
 		self.selected_edit = None
-		self._draw_matrix = True
+		self._draw_matrix = _draw_matrix
 		super().__init__(name, tiles, self.pos)
 	
 	def items(self):
@@ -1404,7 +1427,10 @@ class Layers:
 			text_cl = (200, 200, 200)
 			if layer == self.project.current_layer:
 				layer_cl, text_cl = text_cl, layer_cl
-			text: pg.Surface = self.text.render(f"layer {layer}", True, text_cl, layer_cl)
+				prefix = '_' if self.project.renaming else ''
+			else:
+				prefix = ''
+			text: pg.Surface = self.text.render(self.project.layer_names[layer] + prefix, True, text_cl, layer_cl)
 			pg.draw.rect(texture, layer_cl, (10, y, texture.get_width() - 10, 40))
 			texture.blit(text, (10, y + 5))
 			y += 40
