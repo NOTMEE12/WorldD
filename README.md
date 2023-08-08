@@ -21,6 +21,11 @@
 ##### Project related
 - `Q` - move project selection to left
 - `E` - move project selection to right
+##### Layers
+- `right arrow` - new layer / change selection to the layer above
+- `left arrow` - change selection to the layer below, you can't select layers below 0.
+- `CTRL + R` - rename layer
+- `SHIFT + DELETE` - deletes current layer
 
 ---
 ### Important Info
