@@ -575,7 +575,7 @@ class Project:
 		for x_ in range(left, right):
 			for y_ in range(top, bottom):
 				pos = (x_, y_)
-				tile = None
+				tiles = []
 				x, y = None, None
 				for layer in reversed(self.grid):
 					if pos in layer:
@@ -590,14 +590,14 @@ class Project:
 								if vis_rect.collidepoint(x, y):
 									if tile_name not in self.tile_cache:
 										self.tile_cache[tile_name] = pg.transform.scale(self.sprite_sheet.img.subsurface(tile_name), size).convert_alpha()
-									tile = self.tile_cache[tile_name]
-									break
+									tiles.append(self.tile_cache[tile_name])
 							else:
 								del layer[pos]
 						else:
 							del layer[pos]
-				if tile is not None:
-					grid.append((tile, (x, y)))
+				if tiles:
+					for tile in tiles:
+						grid.append((tile, (x, y)))
 				
 		self.display.fblits(grid)
 	
@@ -1188,7 +1188,7 @@ class TileGroup(PureTileGroup):
 	@property
 	def data(self):
 		return {'tiles': {name: tile for name, tile in self.tiles.items()}, 'pos': list(self.pos),
-		        '_draw_matrix': self._draw_matrix, '_matrix': self._matrix}
+		        '_draw_matrix': self._draw_matrix, '_matrix': {}}
 
 	def __repr__(self):
 		return f'<TileGroup name:\"{self.name}\" tiles:{self.tiles}>'
