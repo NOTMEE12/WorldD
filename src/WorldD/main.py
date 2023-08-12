@@ -12,7 +12,7 @@ from typing import TypeVar
 pg.init()
 tkinter.Tk().withdraw()
 
-__version__ = '0.13'
+__version__ = '1.0.0'
 
 PureTileGroup = TypeVar('PureTileGroup')
 
@@ -38,7 +38,7 @@ def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
 		layer_names = [f'layer {layer+1}' for layer in range(len(grid))]
 		return tile_size, sprite_sheet, tiles, grid, layer_names
 	
-	def load_v0_13():
+	def load_v1_00():
 		tile_size: list[int, int] = data['tile-size']
 		tiles: dict[str, PureTileGroup] = \
 			{
@@ -63,8 +63,8 @@ def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
 	match version:
 		case "? 0.12":
 			return load_v0_12()
-		case "0.13":
-			return load_v0_13()
+		case "v1.0.0":
+			return load_v1_00()
 		case _:
 			print("VERSION UNKNOWN")
 
