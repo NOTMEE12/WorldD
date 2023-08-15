@@ -40,3 +40,7 @@ AUTOTILE-RECT           = ['x', 'shift']
 # #====[ FONTS ]====# #
 HEADER-FONT             = 'Arial'
 TEXT-FONT               = 'Arial'
+
+# #====[ THEMES ]====# #
+[Welcome-Screen]
+	background          = [0, 0, 0]

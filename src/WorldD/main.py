@@ -179,6 +179,12 @@ class Options:
 			self.TOP_OFFSET = self.options['TOP-OFFSET']
 
 
+class Themes:
+	
+	def __init__(self, options: dict):
+		self.Welcome = options['Welcome-Screen']
+
+
 class Main:
 	
 	def __init__(self):
@@ -191,6 +197,8 @@ class Main:
 		self.work_path = os.path.dirname(os.path.abspath(__file__)) + '\\'
 		self.Options = Options(self.work_path + 'options.toml')
 		self.Bindings = Bindings(self.Options.options)
+		"""====[ COLOR SCHEME ]===="""
+		self.colors = Themes(self.Options.options)
 		"""====[ ICONS ]===="""
 		icon_sheet = pg.image.load(self.work_path + 'assets/icon-sheet.png').convert_alpha()
 		self.hide_ico = pg.transform.scale(icon_sheet.subsurface((0, 0, 16, 16)), (32, 32))
@@ -1225,7 +1233,7 @@ class Welcome:
 		dis_rect = self.display.get_rect()
 		
 		"""====[ WELCOME ]===="""
-		self.display.fill(0)
+		self.display.fill(self.main.colors.Welcome['background'])
 		self.display.blit(self.texts['#Welcome'],
 		                  self.texts['#Welcome'].get_rect(center=(dis_rect.w / 4, dis_rect.h / 6)))
 		
