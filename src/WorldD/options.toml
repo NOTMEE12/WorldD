@@ -44,3 +44,5 @@ TEXT-FONT               = 'Arial'
 # #====[ THEMES ]====# #
 [Welcome-Screen]
 	background          = [0, 0, 0]
+	top-bar-background  = [5, 5, 5]
+	top-bar-text-color  = [200, 200, 200]

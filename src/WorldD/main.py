@@ -222,9 +222,10 @@ class Main:
 		
 		self.projects[self.selected].render()
 		"""====[ PROJECT NAME ]===="""
-		pg.draw.rect(self.display, (5, 5, 5), (0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
+		pg.draw.rect(self.display, self.colors.Welcome['top-bar-background'],
+					 (0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
 		main_project = self.Header.render('< ' + self.projects[self.selected].path.split('/')[-1] + ' > ', True,
-		                                  (200, 200, 200))
+		                                  self.colors.Welcome['top-bar-text-color'])
 		main_pos = ((self.display.get_width() - main_project.get_width()) / 2,
 		            (self.Options.TOP_OFFSET - main_project.get_height()) / 2)
 		self.display.blit(main_project, main_pos)
