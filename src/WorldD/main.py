@@ -63,7 +63,7 @@ def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
 	match version:
 		case "? 0.12":
 			return load_v0_12()
-		case "v1.0.0":
+		case "1.0.0":
 			return load_v1_00()
 		case _:
 			print("VERSION UNKNOWN")
