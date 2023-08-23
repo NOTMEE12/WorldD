@@ -38,7 +38,7 @@ AUTOTILE-RECT           = ['x', 'shift']
 
 
 # #====[ FONTS ]====# #
-HEADER-FONT             = 'Arial'
+HEADER-FONT         = 'Arial'
 TEXT-FONT               = 'Arial'
 
 # #====[ THEMES ]====# #
@@ -46,3 +46,7 @@ TEXT-FONT               = 'Arial'
 	background          = [0, 0, 0]
 	top-bar-background  = [5, 5, 5]
 	top-bar-text-color  = [200, 200, 200]
+	recent-border-radius= 15
+	recent-background   = [20, 20, 20]
+	recent-text-color   = [150, 150, 150]
+	

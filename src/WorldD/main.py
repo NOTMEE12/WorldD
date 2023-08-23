@@ -1253,12 +1253,14 @@ class Welcome:
 		
 		"""====[ RECENT ]===="""
 		rect = pg.Rect(25, dis_rect.h / 2, dis_rect.w / 2 - 25, dis_rect.h / 2)
-		pg.draw.rect(self.display, (20, 20, 20), rect, border_radius=15)
+		pg.draw.rect(self.display, self.main.colors.Welcome['recent-background'],
+					 rect,
+					 border_radius=self.main.colors.Welcome['recent-border-radius'])
 		for row, text in enumerate(self.main.recent):
 			pos = (rect.left + self.text.size('  ')[0], rect.top + row * self.text.get_height())
-			txt = self.text.render(text, True, (150, 150, 150))
+			txt = self.text.render(text, True, self.main.colors.Welcome['recent-text-color'])
 			if txt.get_rect(topleft=pos).collidepoint(mouse_pos) and len(self.main.popups) == 0:
-				txt = self.text_und.render(text, True, (150, 150, 150))
+				txt = self.text_und.render(text, True, self.main.colors.Welcome['recent-text-color'])
 			self.display.blit(txt, pos)
 	
 	def render_on_top(self):
