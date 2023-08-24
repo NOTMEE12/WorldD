@@ -1258,9 +1258,15 @@ class Welcome:
 					 border_radius=self.main.colors.Welcome['recent-border-radius'])
 		for row, text in enumerate(self.main.recent):
 			pos = (rect.left + self.text.size('  ')[0], rect.top + row * self.text.get_height())
-			txt = self.text.render(text, True, self.main.colors.Welcome['recent-text-color'])
-			if txt.get_rect(topleft=pos).collidepoint(mouse_pos) and len(self.main.popups) == 0:
-				txt = self.text_und.render(text, True, self.main.colors.Welcome['recent-text-color'])
+			if self.main.colors.Welcome['shortened-recent-path']:
+				text = './' + text.split('/')[-1]
+				txt = self.text.render(
+					text, True, self.main.colors.Welcome['recent-text-color']
+				)
+				if txt.get_rect(topleft=pos).collidepoint(mouse_pos) and len(self.main.popups) == 0:
+					txt = self.text_und.render(
+						text, True, self.main.colors.Welcome['recent-text-color']
+					)
 			self.display.blit(txt, pos)
 	
 	def render_on_top(self):
