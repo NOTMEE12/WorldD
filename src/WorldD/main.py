@@ -183,6 +183,7 @@ class Themes:
 	
 	def __init__(self, options: dict):
 		self.Welcome = options['Welcome-Screen']
+		self.Project = options['Project']
 
 
 class Main:
@@ -380,7 +381,7 @@ class Project:
 		self.zoom = 1
 		
 		"""====[ CUSTOMIZABLE ]===="""
-		self.grid_color = (255, 255, 255)
+		self.grid_color = self.main.colors.Project['grid-color']
 		self.selected_tile_color = (255, 255, 255)
 		self.selected_matrix_selection_color = (255, 100, 100)
 		self.matrix_full_color = (50, 255, 50)
