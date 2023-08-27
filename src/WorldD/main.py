@@ -63,7 +63,7 @@ def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
 	match version:
 		case "? 0.12":
 			return load_v0_12()
-		case "v1.0.0":
+		case "1.0.0":
 			return load_v1_00()
 		case _:
 			print("VERSION UNKNOWN")
@@ -219,7 +219,7 @@ class Main:
 		self.selected = 0
 	
 	def refresh(self):
-		self.display.fill(0)
+		self.display.fill(self.colors.Project['background'])
 		
 		self.projects[self.selected].render()
 		"""====[ PROJECT NAME ]===="""

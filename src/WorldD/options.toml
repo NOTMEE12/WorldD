@@ -51,4 +51,5 @@ TEXT-FONT                   = 'Arial'
 	recent-text-color       = [150, 150, 150]
 	shortened-recent-path   = true
 [Project]
-	grid-color              = [120, 255, 255]
+	grid-color              = [255, 255, 255]
+	background              = [0, 0, 0]
