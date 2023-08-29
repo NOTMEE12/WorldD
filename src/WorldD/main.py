@@ -179,6 +179,13 @@ class Options:
 			self.TOP_OFFSET = self.options['TOP-OFFSET']
 
 
+class Themes:
+	
+	def __init__(self, options: dict):
+		self.Welcome = options['Welcome-Screen']
+		self.Project = options['Project']
+
+
 class Main:
 	
 	def __init__(self):
@@ -191,6 +198,8 @@ class Main:
 		self.work_path = os.path.dirname(os.path.abspath(__file__)) + '\\'
 		self.Options = Options(self.work_path + 'options.toml')
 		self.Bindings = Bindings(self.Options.options)
+		"""====[ COLOR SCHEME ]===="""
+		self.colors = Themes(self.Options.options)
 		"""====[ ICONS ]===="""
 		icon_sheet = pg.image.load(self.work_path + 'assets/icon-sheet.png').convert_alpha()
 		self.hide_ico = pg.transform.scale(icon_sheet.subsurface((0, 0, 16, 16)), (32, 32))
@@ -210,13 +219,14 @@ class Main:
 		self.selected = 0
 	
 	def refresh(self):
-		self.display.fill(0)
+		self.display.fill(self.colors.Project['background'])
 		
 		self.projects[self.selected].render()
 		"""====[ PROJECT NAME ]===="""
-		pg.draw.rect(self.display, (5, 5, 5), (0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
+		pg.draw.rect(self.display, self.colors.Welcome['top-bar-background'],
+					 (0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
 		main_project = self.Header.render('< ' + self.projects[self.selected].path.split('/')[-1] + ' > ', True,
-		                                  (200, 200, 200))
+		                                  self.colors.Welcome['top-bar-text-color'])
 		main_pos = ((self.display.get_width() - main_project.get_width()) / 2,
 		            (self.Options.TOP_OFFSET - main_project.get_height()) / 2)
 		self.display.blit(main_project, main_pos)
@@ -371,12 +381,11 @@ class Project:
 		self.zoom = 1
 		
 		"""====[ CUSTOMIZABLE ]===="""
-		self.grid_color = (255, 255, 255)
-		self.selected_tile_color = (255, 255, 255)
-		self.selected_matrix_selection_color = (255, 100, 100)
-		self.matrix_full_color = (50, 255, 50)
-		self.window_outline_color = (128, 128, 128)
-		self.selected_window_outline_color = (255, 255, 255)
+		self.grid_color = self.main.colors.Project['grid-color']
+		self.selected_tile_color = self.main.colors.Project['selected-tile-color']
+		self.matrix_full_color = self.main.colors.Project['matrix-color-when-full']
+		self.window_outline_color = self.main.colors.Project['window-outline-color']
+		self.selected_window_outline_color = self.main.colors.Project['selected-window-outline']
 		
 		"""====[ CACHED ]===="""
 		self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
@@ -1225,7 +1234,7 @@ class Welcome:
 		dis_rect = self.display.get_rect()
 		
 		"""====[ WELCOME ]===="""
-		self.display.fill(0)
+		self.display.fill(self.main.colors.Welcome['background'])
 		self.display.blit(self.texts['#Welcome'],
 		                  self.texts['#Welcome'].get_rect(center=(dis_rect.w / 4, dis_rect.h / 6)))
 		
@@ -1244,12 +1253,20 @@ class Welcome:
 		
 		"""====[ RECENT ]===="""
 		rect = pg.Rect(25, dis_rect.h / 2, dis_rect.w / 2 - 25, dis_rect.h / 2)
-		pg.draw.rect(self.display, (20, 20, 20), rect, border_radius=15)
+		pg.draw.rect(self.display, self.main.colors.Welcome['recent-background'],
+					 rect,
+					 border_radius=self.main.colors.Welcome['recent-border-radius'])
 		for row, text in enumerate(self.main.recent):
 			pos = (rect.left + self.text.size('  ')[0], rect.top + row * self.text.get_height())
-			txt = self.text.render(text, True, (150, 150, 150))
-			if txt.get_rect(topleft=pos).collidepoint(mouse_pos) and len(self.main.popups) == 0:
-				txt = self.text_und.render(text, True, (150, 150, 150))
+			if self.main.colors.Welcome['shortened-recent-path']:
+				text = './' + text.split('/')[-1]
+				txt = self.text.render(
+					text, True, self.main.colors.Welcome['recent-text-color']
+				)
+				if txt.get_rect(topleft=pos).collidepoint(mouse_pos) and len(self.main.popups) == 0:
+					txt = self.text_und.render(
+						text, True, self.main.colors.Welcome['recent-text-color']
+					)
 			self.display.blit(txt, pos)
 	
 	def render_on_top(self):

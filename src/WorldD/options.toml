@@ -1,42 +1,59 @@
 
 # #====[ CUSTOMIZATIONS ]====# #
-SHOW-EXIT               = false
-FPS                     = 'AUTO'
-TOP-OFFSET              = 50
+SHOW-EXIT                   = false
+FPS                         = 'AUTO'
+TOP-OFFSET                  = 50
 
 # #====[ CONTROLS ]====# #
-MOUSE-SENSITIVITY       = 1
-SCROLL-SENSITIVITY      = 0.25
-SCALE-TILE-UP           = ['up', '']    # 'up' will mean the arrow up
-SCALE-TILE-DOWN         = ['down', '']  # 'down' means arrow down
-TOGGLE-FULLSCREEN       = ['F11', '']
-SAVE                    = ['s', 'ctrl']
-LOAD                    = ['o', 'ctrl']
-EXIT                    = ['escape', 'shift']
-CANCEL-SELECTION        = ['escape', '']
-SELECTION-ACCEPT        = ['return', '']  # 'return' is enter key
-TILE-LOOKUP-REMOVAL     = ['delete', 'ctrl']
-PROJECT-SELECTION-LEFT  = ['q', '']
-PROJECT-SELECTION-RIGHT = ['e', '']
-MATRIX-TOP-RIGHT        = ['[9]', '']  # NUMPAD 9
-MATRIX-TOP-MID          = ['[8]', '']
-MATRIX-TOP-LEFT         = ['[7]', '']
-MATRIX-MID-RIGHT        = ['[6]', '']
-MATRIX-MID-MID          = ['[5]', '']
-MATRIX-MID-LEFT         = ['[4]', '']
-MATRIX-BOT-RIGHT        = ['[3]', '']
-MATRIX-BOT-MID          = ['[2]', '']
-MATRIX-BOT-LEFT         = ['[1]', '']
-NEW-LAYER               = ['right', '']
-PREVIOUS-LAYER          = ['left', '']
-DELETE-LAYER            = ['delete', 'shift']
-RENAME-LAYER            = ['R', 'CTRL']
+MOUSE-SENSITIVITY           = 1
+SCROLL-SENSITIVITY          = 0.25
+SCALE-TILE-UP               = ['up', '']    # 'up' will mean the arrow up
+SCALE-TILE-DOWN             = ['down', '']  # 'down' means arrow down
+TOGGLE-FULLSCREEN           = ['F11', '']
+SAVE                        = ['s', 'ctrl']
+LOAD                        = ['o', 'ctrl']
+EXIT                        = ['escape', 'shift']
+CANCEL-SELECTION            = ['escape', '']
+SELECTION-ACCEPT            = ['return', '']  # 'return' is enter key
+TILE-LOOKUP-REMOVAL         = ['delete', 'ctrl']
+PROJECT-SELECTION-LEFT      = ['q', '']
+PROJECT-SELECTION-RIGHT     = ['e', '']
+MATRIX-TOP-RIGHT            = ['[9]', '']  # NUMPAD 9
+MATRIX-TOP-MID              = ['[8]', '']
+MATRIX-TOP-LEFT             = ['[7]', '']
+MATRIX-MID-RIGHT            = ['[6]', '']
+MATRIX-MID-MID              = ['[5]', '']
+MATRIX-MID-LEFT             = ['[4]', '']
+MATRIX-BOT-RIGHT            = ['[3]', '']
+MATRIX-BOT-MID              = ['[2]', '']
+MATRIX-BOT-LEFT             = ['[1]', '']
+NEW-LAYER                   = ['right', '']
+PREVIOUS-LAYER              = ['left', '']
+DELETE-LAYER                = ['delete', 'shift']
+RENAME-LAYER                = ['R', 'CTRL']
 # tools
-RECT                    = ['x', '']
-BRUSH                   = ['w', '']
-AUTOTILE-RECT           = ['x', 'shift']
+RECT                        = ['x', '']
+BRUSH                       = ['w', '']
+AUTOTILE-RECT               = ['x', 'shift']
 
 
 # #====[ FONTS ]====# #
-HEADER-FONT             = 'Arial'
-TEXT-FONT               = 'Arial'
+HEADER-FONT                 = 'Arial'
+TEXT-FONT                   = 'Arial'
+
+# #====[ THEMES ]====# #
+[Welcome-Screen]
+	background              = [0, 0, 0]
+	top-bar-background      = [5, 5, 5]
+	top-bar-text-color      = [200, 200, 200]
+	recent-border-radius    = 15
+	recent-background       = [20, 20, 20]
+	recent-text-color       = [150, 150, 150]
+	shortened-recent-path   = true
+[Project]
+	grid-color              = [255, 255, 255]
+	background              = [0, 0, 0]
+	selected-tile-color     = [255, 255, 255]
+	matrix-color-when-full  = [0, 255, 0]
+	window-outline-color    = [128, 128, 128]
+	selected-window-outline = [255, 255, 255]
