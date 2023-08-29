@@ -53,3 +53,7 @@ TEXT-FONT                   = 'Arial'
 [Project]
 	grid-color              = [255, 255, 255]
 	background              = [0, 0, 0]
+	selected-tile-color     = [255, 255, 255]
+	matrix-color-when-full  = [0, 255, 0]
+	window-outline-color    = [128, 128, 128]
+	selected-window-outline = [255, 255, 255]

@@ -382,11 +382,10 @@ class Project:
 		
 		"""====[ CUSTOMIZABLE ]===="""
 		self.grid_color = self.main.colors.Project['grid-color']
-		self.selected_tile_color = (255, 255, 255)
-		self.selected_matrix_selection_color = (255, 100, 100)
-		self.matrix_full_color = (50, 255, 50)
-		self.window_outline_color = (128, 128, 128)
-		self.selected_window_outline_color = (255, 255, 255)
+		self.selected_tile_color = self.main.colors.Project['selected-tile-color']
+		self.matrix_full_color = self.main.colors.Project['matrix-color-when-full']
+		self.window_outline_color = self.main.colors.Project['window-outline-color']
+		self.selected_window_outline_color = self.main.colors.Project['selected-window-outline']
 		
 		"""====[ CACHED ]===="""
 		self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
