@@ -158,6 +158,8 @@ class Bindings:
 		self.PREVIOUS_LAYER = Key(*bindings['PREVIOUS-LAYER'])
 		self.DELETE_LAYER = Key(*bindings['DELETE-LAYER'])
 		self.RENAME_LAYER = Key(*bindings['RENAME-LAYER'])
+		self.TOGGLE_TILE_MODE = Key(*bindings['TOGGLE-TILE-MODE'])
+		self.EDIT_TILE = Key(*bindings)
 
 
 class Options:
@@ -379,6 +381,9 @@ class Project:
 		self._selected_tile = None
 		self.tile_size = pg.Vector2(tile_size)
 		self.zoom = 1
+		self.tile_mode_enabled = False
+		self.scroll = 0
+		self.last_y = 0
 		
 		"""====[ CUSTOMIZABLE ]===="""
 		self.grid_color = self.main.colors.Project['grid-color']
@@ -404,7 +409,16 @@ class Project:
 		tile_size, sp_sheet, pure_tile_groups, self.grid, self.layer_names = load(self.destination)
 		self.tile_size = pg.Vector2(tuple(tile_size))
 		self.sprite_sheet = self.SpriteSheet(sp_sheet, self.display, self)
-		self.tiles = {name: TileGroup(self, name, tile_group.tiles, tile_group.pos) for name, tile_group in pure_tile_groups.items()}
+		self.tiles = {}
+		y = 0
+		for name, pure_tile_group in pure_tile_groups.items():
+			tile_group = TileGroup(self, name, pure_tile_group.tiles, (0, y))
+			self.tiles[name] = tile_group
+			y += tile_group.size[2]
+			# print((len(tile_group.tiles)*self.tile_size[0]//self.sidebar.w)*48)
+			print(self.tiles[name].size[2])
+		self.last_y = y
+		# self.tiles = {name: TileGroup(self, name, tile_group.tiles, tile_group.pos) }
 		self.destination.close()
 		self.destination = None
 	
@@ -586,7 +600,7 @@ class Project:
 				pos = (x_, y_)
 				tiles = []
 				x, y = None, None
-				for layer in reversed(self.grid):
+				for layer in self.grid:
 					if pos in layer:
 						data = layer[pos]
 						if data[0] in self.tiles:
@@ -612,24 +626,26 @@ class Project:
 	
 	def render(self):
 		dis_rect = self.display.get_rect()
-		self.draw_grid_lines()
-		# ===[ GRID ]===
-		self.draw_grid_tiles()
-		if self.tool == 'brush':
-			self.display_hover_tile()
-		elif self.tool == 'rect':
-			self.draw_hover_rect()
-		elif self.tool == 'autotile-rect':
-			self.draw_hover_autotiling_rect()
-		# ===[ BOLD LINES ]===
-		pg.draw.line(self.display, "white", (self.bold.x, self.main.Options.TOP_OFFSET), (self.bold.x, dis_rect.h), 5)
-		if self.bold.y > self.main.Options.TOP_OFFSET:
-			pg.draw.line(self.display, "white", (0, self.bold.y), (dis_rect.w, self.bold.y), 5)
-			pg.draw.circle(self.display, "white", (self.bold.x, self.bold.y), 15)
-		"""====[ SIDEBAR ]===="""
-		pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
-		self.sprite_sheet.render(self.tile_size)
-		self.layers_vis.visualize()
+		if self.tile_mode_enabled:
+			self.sprite_sheet.render(self.tile_size)
+		else:
+			self.draw_grid_lines()
+			# ===[ GRID ]===
+			self.draw_grid_tiles()
+			if self.tool == 'brush':
+				self.display_hover_tile()
+			elif self.tool == 'rect':
+				self.draw_hover_rect()
+			elif self.tool == 'autotile-rect':
+				self.draw_hover_autotiling_rect()
+			# ===[ BOLD LINES ]===
+			pg.draw.line(self.display, "white", (self.bold.x, self.main.Options.TOP_OFFSET), (self.bold.x, dis_rect.h), 5)
+			if self.bold.y > self.main.Options.TOP_OFFSET:
+				pg.draw.line(self.display, "white", (0, self.bold.y), (dis_rect.w, self.bold.y), 5)
+				pg.draw.circle(self.display, "white", (self.bold.x, self.bold.y), 15)
+			"""====[ SIDEBAR ]===="""
+			pg.draw.rect(self.display, (10, 10, 10), self.sidebar)
+			self.layers_vis.visualize()
 		for tile_group in self.tiles.values():
 			tile_group.draw()
 	
@@ -762,6 +778,8 @@ class Project:
 						self.current_layer -= 1
 					elif event == self.main.Bindings.RENAME_LAYER:
 						self.renaming = True
+					elif event == self.main.Bindings.TOGGLE_TILE_MODE:
+						self.tile_mode_enabled = not self.tile_mode_enabled
 			elif event.type == KEYUP:
 				if event == self.main.Bindings.RECT:
 					if self.rect[0]:
@@ -823,10 +841,14 @@ class Project:
 					self.tile_cache = {}
 					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
 					                       self.offset[1] * self.zoom - self.tile_size[1])
-		self.layers_vis.event_handler(self.main.events)
-		for tile_group in self.tiles.copy().values():
-			tile_group.eventHandler(self.main.events)
-		self.sprite_sheet.eventHandler(self.main.events)
+				else:
+					self.scroll += event.y * self.main.Options.SCROLL_SENSITIVITY * 50
+		if self.tile_mode_enabled:
+			self.sprite_sheet.eventHandler(self.main.events)
+			for tile_group in self.tiles.copy().values():
+				tile_group.eventHandler(self.main.events)
+		else:
+			self.layers_vis.event_handler(self.main.events)
 	
 	class SpriteSheet:
 		
@@ -839,7 +861,8 @@ class Project:
 			self.project: Project = project
 			self.main = self.project.main
 			self.display = display
-			self.sidebar = self.project.sidebar
+			
+			self.center = self.display.get_width()*.65, self.display.get_height()/2
 			
 			"""====[ IMAGE ]===="""
 			self.img = pg.image.load(path).convert_alpha()
@@ -856,6 +879,7 @@ class Project:
 			self.selection_name = ""
 			self.selection_color = "red"
 			self.selection = pg.Rect(0, 0, 0, 0)
+			self.edit_tile = False
 		
 		def draw_selection(self, img):
 			if self.selection != (0, 0, 0, 0):
@@ -868,7 +892,7 @@ class Project:
 		
 		@property
 		def area(self):
-			return self.img.get_rect(centerx=self.sidebar.centerx, top=self.sidebar.centery)
+			return self.img.get_rect(center=self.center)
 		
 		def draw_lines(self, img, tile_size):
 			if img.get_width() > img.get_height():
@@ -953,7 +977,7 @@ class Project:
 								self.selection.h - ((self.selection.h * 2) if self.selection.h < 0 else 0)
 							)
 				elif event.type == KEYDOWN:
-					if self.save_selection != (0, 0, 0, 0):
+					if self.selection != (0, 0, 0, 0):
 						if event == self.main.Bindings.CANCEL_SELECTION:
 							self.selection = pg.Rect(0, 0, 0, 0)
 							self.selection_name = ""
@@ -972,6 +996,8 @@ class Project:
 						elif not event.unicode.isascii():
 							pass
 						else:
+							print(self.selection, self.save_selection, self.selection_name)
+							print(self.save_selection != (0, 0, 0, 0))
 							self.selection_name += event.unicode
 
 
@@ -1058,10 +1084,10 @@ class TileGroup(PureTileGroup):
 	@property
 	def size(self):
 		tile_size = (max(64, int(self.project.tile_size[0])), max(64, int(self.project.tile_size[0])))
-		width = max(256, min(len(self.tiles), 5) * tile_size[0] + tile_size[0] // 2)
-		tiles_in_row = width // tile_size[0]
+		width = max(self.project.sidebar.w, min(len(self.tiles), 5) * tile_size[0] + tile_size[0] // 2)
+		tiles_in_row = width // tile_size[0] - 1
 		height = int((len(self.tiles) // tiles_in_row) * tile_size[1] + tile_size[1] * 1.5) + 64
-		return tile_size, width, height, tiles_in_row
+		return tile_size, self.project.sidebar.w, height, tiles_in_row
 	
 	def draw(self):
 		tile_size, width, height, tiles_in_row = self.size
@@ -1083,9 +1109,9 @@ class TileGroup(PureTileGroup):
 			tiles.blit(pg.transform.scale(self.project.sprite_sheet.img.subsurface(tile), tile_size), pos)
 		# tiles.blit(text, (pos[0] + tile_size[0]/2 - text.get_width() / 2, pos[1] + tile_size[1]))
 		
-		pg.draw.rect(self.display, color,
-		             pg.Rect(self.pos[0] - 2, self.pos[1] - 2, tiles.get_width() + 4, tiles.get_height() + 4),
-		             border_radius=15)
+		# pg.draw.rect(self.display, color,
+		#              pg.Rect(self.pos[0] - 2, self.pos[1] - 2, tiles.get_width() + 4, tiles.get_height() + 4),
+		#              border_radius=15)
 		x = tiles.get_width() - 64
 		y = 20
 		if not self._draw_matrix:
@@ -1093,7 +1119,7 @@ class TileGroup(PureTileGroup):
 		else:
 			tiles.blit(self.project.main.show_ico, (x, y))
 		tiles.blit(self.project.main.close_ico, (x + 32, y))
-		self.display.blit(tiles, self.pos)
+		self.display.blit(tiles, (self.pos[0], self.project.scroll+self.pos[1]))
 		self.draw_matrix()
 	
 	def draw_matrix(self):
@@ -1124,16 +1150,17 @@ class TileGroup(PureTileGroup):
 					tile = pg.transform.scale(
 						self.project.sprite_sheet.img.subsurface(self.tiles[matrix[(en_x, en_y)]]), tile_size)
 					matrix_canvas.blit(tile, pg.Rect((x, y), tile_size))
-		w = max(256, min(len(self.tiles), 5) * tile_size[0] + tile_size[0] // 2)
-		pos = (self.pos.x + w, self.pos.y)
+		w = self.project.sidebar.w
+		pos = (self.pos.x + w, self.pos.y + self.project.scroll)
 		pg.draw.rect(self.display, color,
 		             (pos[0] - 2, pos[1] - 2, matrix_canvas.get_width() + 4, matrix_canvas.get_height() + 4))
 		self.display.blit(matrix_canvas, pos)
 	
 	def collidepoint(self, *pos):
 		tile_size, width, height, tiles_in_row = self.size
-		tiles = pg.Rect(self.pos, (width, height))
-		matrix = pg.Rect((self.pos.x + width, self.pos.y),
+		pos2 = pg.Vector2(self.pos[0], self.project.scroll+self.pos[1])
+		tiles = pg.Rect(pos2, (width, height))
+		matrix = pg.Rect((pos2.x + width, self.pos.y),
 		                 (max(256, 3 * tile_size[0]), max(256, 3 * tile_size[1]) + 64))
 		return tiles.collidepoint(pos) or (matrix.collidepoint(pos) if self._draw_matrix else False)
 	
@@ -1146,13 +1173,13 @@ class TileGroup(PureTileGroup):
 			elif event.type == MOUSEBUTTONDOWN:
 				if event.button == 1 or event.button == 3 and self.collidepoint(event.pos):
 					tile_size, width, height, tiles_in_row = self.size
-					if pg.Rect(self.pos[0] + width - 64, self.pos[1] + 20, 32, 32).collidepoint(event.pos):
+					if pg.Rect(self.pos[0] + width - 64, self.pos[1]+self.project.scroll + 20, 32, 32).collidepoint(event.pos):
 						self._draw_matrix = not self._draw_matrix
-					elif pg.Rect(self.pos[0] + width - 32, self.pos[1] + 20, 32, 32).collidepoint(event.pos):
+					elif pg.Rect(self.pos[0] + width - 32, self.pos[1]+self.project.scroll + 20, 32, 32).collidepoint(event.pos):
 						del self.project.tiles[self.name]
 					else:
 						for idx, (name, tile) in enumerate(self.tiles.items()):
-							pos = pg.Vector2(idx % tiles_in_row * 69 + 5, idx // tiles_in_row * 69 + 5 + 64) + self.pos
+							pos = pg.Vector2(idx % tiles_in_row * 69 + 5, idx // tiles_in_row * 69 + 5 + 64) + (self.pos[0], self.pos[1]+self.project.scroll)
 							if pg.Rect(pos, tile_size).collidepoint(event.pos):
 								self.project.selected_tile = (self.name, name)
 								self.selected_edit = name
