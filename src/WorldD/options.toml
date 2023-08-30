@@ -32,6 +32,7 @@ PREVIOUS-LAYER              = ['left', '']
 DELETE-LAYER                = ['delete', 'shift']
 RENAME-LAYER                = ['r', 'ctrl']
 TOGGLE-TILE-MODE            = ['t', 'ctrl']
+EDIT-TILE                   = ['e', 'ctrl']
 # tools
 RECT                        = ['x', '']
 BRUSH                       = ['w', '']

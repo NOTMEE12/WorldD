@@ -159,7 +159,7 @@ class Bindings:
 		self.DELETE_LAYER = Key(*bindings['DELETE-LAYER'])
 		self.RENAME_LAYER = Key(*bindings['RENAME-LAYER'])
 		self.TOGGLE_TILE_MODE = Key(*bindings['TOGGLE-TILE-MODE'])
-		self.EDIT_TILE = Key(*bindings)
+		self.EDIT_TILE = Key(*bindings['EDIT-TILE'])
 
 
 class Options:
@@ -334,7 +334,14 @@ class Project:
 		self.sidebar = pg.Rect(0, 0, self.win[0] / 3, self.win[1])
 		self.text = pg.font.SysFont(self.main.Options.TEXT_FONT, 30, False, False)
 		self.header = pg.font.SysFont(self.main.Options.HEADER_FONT, 35, True, False)
-		self.save_selection = self.header.render("group (name/ESC)", True, (250, 250, 250))
+		self.save_selection_group = self.header.render("group (name/ESC)", True, (250, 250, 250))
+		self.save_selection_name = self.header.render("name (name/ESC)", True, (250, 250, 250))
+		self.header.set_underline(True)
+		self.save_selection_group_sel = self.header.render("group (name/ESC)",
+														   True, (250, 250, 250))
+		self.save_selection_name_sel = self.header.render("name (name/ESC)",
+														  True, (250, 250, 250))
+		self.header.set_underline(False)
 		self.sprite_sheet = None
 		
 		"""====[ TOOLS ]===="""
@@ -415,8 +422,6 @@ class Project:
 			tile_group = TileGroup(self, name, pure_tile_group.tiles, (0, y))
 			self.tiles[name] = tile_group
 			y += tile_group.size[2]
-			# print((len(tile_group.tiles)*self.tile_size[0]//self.sidebar.w)*48)
-			print(self.tiles[name].size[2])
 		self.last_y = y
 		# self.tiles = {name: TileGroup(self, name, tile_group.tiles, tile_group.pos) }
 		self.destination.close()
@@ -430,8 +435,6 @@ class Project:
 					self.path = self.destination.name
 			else:
 				self.destination = open(self.path, 'a+')
-		else:
-			print(self.destination)
 		if self.path is not None and self.path[-4:] != '.png':
 			save_data = json.dumps(
 				{
@@ -726,7 +729,6 @@ class Project:
 						self.layer_names[self.current_layer] = self.layer_names[self.current_layer][0:-1]
 					elif event.unicode.isascii():
 						self.layer_names[self.current_layer] += event.unicode
-						print(self.layer_names[self.current_layer], event.unicode)
 				else:
 					if event == self.main.Bindings.RECT:
 						self.tool = 'rect'
@@ -765,7 +767,6 @@ class Project:
 						print("new layer")
 						self.current_layer += 1
 						if len(self.grid) <= self.current_layer:
-							print(len(self.grid), self.current_layer)
 							self.grid.append({})
 							self.layer_names.append(f"layer {len(self.grid)}")
 					elif event == self.main.Bindings.PREVIOUS_LAYER:
@@ -787,7 +788,7 @@ class Project:
 						self.rect[1].w = pos[0] - self.rect[1].x + 1
 						self.rect[1].h = pos[1] - self.rect[1].y + 1
 						self.rect[0] = False
-			elif event.type == MOUSEBUTTONDOWN:
+			elif event.type == MOUSEBUTTONDOWN and not self.tile_mode_enabled:
 				if event.button == 1:
 					if not event.pos[0] < self.sidebar.right:
 						if self.selected_tile is not None:
@@ -799,7 +800,7 @@ class Project:
 									self.rect[0] = True
 									self.rect[1] = pg.Rect(self.current_block(), (1, 1))
 			elif event.type == MOUSEBUTTONUP:
-				if self.selected_tile is not None:
+				if self.selected_tile is not None and not self.tile_mode_enabled:
 					if self.tool == 'rect' or self.tool == 'autotile-rect':
 						if self.rect[0]:
 							rect: pg.Rect = self.rect[1]
@@ -817,7 +818,7 @@ class Project:
 							pos = self.current_block(event.pos)
 							self.rect[1].w = pos[0] - self.rect[1].x + 1
 							self.rect[1].h = pos[1] - self.rect[1].y + 1
-			elif event.type == MOUSEMOTION:
+			elif event.type == MOUSEMOTION and not self.tile_mode_enabled:
 				if event.pos[0] > self.sidebar.right:
 					if event.buttons[1]:
 						self.offset += pg.Vector2(event.rel) * self.main.Options.MOUSE_SENSITIVITY / self.zoom
@@ -835,20 +836,20 @@ class Project:
 										self.rect[1].w = pos[0] - self.rect[1].x + 1
 										self.rect[1].h = pos[1] - self.rect[1].y + 1
 			elif event.type == MOUSEWHEEL:
-				if not self.sidebar.collidepoint(pg.mouse.get_pos()):
+				if not self.sidebar.collidepoint(pg.mouse.get_pos()) and not self.tile_mode_enabled:
 					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
 					self.zoom = pg.math.clamp(self.zoom, 0.25, 15)
 					self.tile_cache = {}
 					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
 					                       self.offset[1] * self.zoom - self.tile_size[1])
-				else:
+				elif self.sidebar.collidepoint(pg.mouse.get_pos()):
 					self.scroll += event.y * self.main.Options.SCROLL_SENSITIVITY * 50
 		if self.tile_mode_enabled:
 			self.sprite_sheet.eventHandler(self.main.events)
-			for tile_group in self.tiles.copy().values():
-				tile_group.eventHandler(self.main.events)
 		else:
 			self.layers_vis.event_handler(self.main.events)
+		for tile_group in self.tiles.copy().values():
+			tile_group.eventHandler(self.main.events)
 	
 	class SpriteSheet:
 		
@@ -869,16 +870,21 @@ class Project:
 			self.w, self.h = self.img.get_size()
 			
 			"""====[ TEXT ]===="""
-			self.save_selection = self.project.save_selection
+			self.save_selection_group = self.project.save_selection_group
+			self.save_selection_name = self.project.save_selection_name
+			self.save_selection_group_sel = self.project.save_selection_group_sel
+			self.save_selection_name_sel = self.project.save_selection_name_sel
 			self.text = self.project.text
 			self.header = self.project.header
 			
 			"""====[ CUSTOMIZABLE ]===="""
 			self.zoom = 1
 			self.offset = pg.Vector2(0, 0)
+			self.selection_group_name = ""
 			self.selection_name = ""
 			self.selection_color = "red"
 			self.selection = pg.Rect(0, 0, 0, 0)
+			self.editing_selection_group = True
 			self.edit_tile = False
 		
 		def draw_selection(self, img):
@@ -911,11 +917,16 @@ class Project:
 		def draw_data(self):
 			rect = self.area
 			if self.selection != (0, 0, 0, 0):
-				self.display.blit(self.save_selection,
-				                  (rect.centerx - self.save_selection.get_width() / 2, rect.bottom + 20))
-				text = self.text.render(self.selection_name, False, (120, 120, 120))
+				group = self.save_selection_group_sel if self.editing_selection_group else self.save_selection_group
+				text = self.text.render(self.selection_group_name, False, (120, 120, 120))
 				self.display.blit(text, (rect.centerx - text.get_width() / 2, rect.bottom + 50))
-		
+				self.display.blit(group, (rect.centerx - self.save_selection_group.get_width() / 2, rect.bottom + 20))
+
+				text = self.text.render(self.selection_name, False, (120, 120, 120))
+				name = self.save_selection_name if self.editing_selection_group else self.save_selection_name_sel
+				self.display.blit(text, (rect.centerx - text.get_width()/2, rect.bottom + 130))
+				self.display.blit(name, (rect.centerx - name.get_width() / 2, rect.bottom + 80))
+
 		def render(self, tile_size):
 			sp_sheet = pg.transform.scale_by(self.img, self.zoom)
 			rect = self.area
@@ -977,28 +988,41 @@ class Project:
 								self.selection.h - ((self.selection.h * 2) if self.selection.h < 0 else 0)
 							)
 				elif event.type == KEYDOWN:
-					if self.selection != (0, 0, 0, 0):
+					if event == self.main.Bindings.EDIT_TILE:
+						print(self.project.raw_selected_tile)
+						self.selection = pg.Rect(self.project.selected_tile)
+						self.selection_group_name = self.project.raw_selected_tile[0]
+						self.selection_name = str(self.project.raw_selected_tile[1])
+						# self.save_selection = self.img.subsurface(self.selection)
+					elif self.selection != (0, 0, 0, 0):
 						if event == self.main.Bindings.CANCEL_SELECTION:
 							self.selection = pg.Rect(0, 0, 0, 0)
-							self.selection_name = ""
+							self.selection_group_name = ""
 						elif event.key == K_BACKSPACE:
-							self.selection_name = self.selection_name[:-1]
+							if self.editing_selection_group:
+								self.selection_group_name = self.selection_group_name[:-1]
+							else:
+								self.selection_name = self.selection_name[:-1]
 						elif event == self.main.Bindings.SELECTION_ACCEPT:
-							if self.selection_name not in self.project.tiles:
-								self.project.tiles[self.selection_name]: TileGroup = TileGroup(self.project,
-								                                                               self.selection_name, {})
-							id_ = random.random()
-							while id_ in self.project.tiles[self.selection_name].tiles:
-								id_ = str(random.random())
-							self.project.tiles[self.selection_name][id_] = tuple(self.selection.copy())
+							if self.selection_group_name not in self.project.tiles:
+								self.project.tiles[self.selection_group_name]: TileGroup = TileGroup(self.project,
+																									 self.selection_group_name, {})
+
+							id_ = self.selection_name
+							if self.selection_name in self.project.tiles[self.selection_group_name]:
+								del self.project.tiles[self.selection_group_name][self.selection_name]
+							self.project.tiles[self.selection_group_name][id_] = tuple(self.selection.copy())
 							self.selection = pg.Rect(0, 0, 0, 0)
-							self.selection_name = ""
+							self.selection_group_name = ""
+						elif event.key == K_LEFT or event.key == K_RIGHT:
+							self.editing_selection_group = not self.editing_selection_group
 						elif not event.unicode.isascii():
 							pass
 						else:
-							print(self.selection, self.save_selection, self.selection_name)
-							print(self.save_selection != (0, 0, 0, 0))
-							self.selection_name += event.unicode
+							if self.editing_selection_group:
+								self.selection_group_name += event.unicode
+							else:
+								self.selection_name += event.unicode
 
 
 class PureTileGroup:
