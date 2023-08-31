@@ -179,6 +179,7 @@ class Options:
 			if self.FPS <= 0:
 				self.FPS = 120
 			self.TOP_OFFSET = self.options['TOP-OFFSET']
+			self.SIDEBAR_SCROLL_SPEED = self.options['SIDEBAR-SCROLL-SPEED']
 
 
 class Themes:
@@ -730,55 +731,62 @@ class Project:
 					elif event.unicode.isascii():
 						self.layer_names[self.current_layer] += event.unicode
 				else:
-					if event == self.main.Bindings.RECT:
-						self.tool = 'rect'
-						self.rect[0] = False
-						self.rect[1].topleft = (0, 0)
-						self.rect[1].size = (0, 0)
-					if event == self.main.Bindings.AUTOTILE_RECT:
-						self.tool = 'autotile-rect'
-						self.rect[0] = False
-						self.rect[1].topleft = (0, 0)
-						self.rect[1].size = (0, 0)
-					if event == self.main.Bindings.BRUSH:
-						self.tool = 'brush'
-						self.rect = [False, pg.Rect(0, 0, 0, 0)]
+					if not self.tile_mode_enabled:
+						if event == self.main.Bindings.RECT:
+							self.tool = 'rect'
+							self.rect[0] = False
+							self.rect[1].topleft = (0, 0)
+							self.rect[1].size = (0, 0)
+						if event == self.main.Bindings.AUTOTILE_RECT:
+							self.tool = 'autotile-rect'
+							self.rect[0] = False
+							self.rect[1].topleft = (0, 0)
+							self.rect[1].size = (0, 0)
+						if event == self.main.Bindings.BRUSH:
+							self.tool = 'brush'
+							self.rect = [False, pg.Rect(0, 0, 0, 0)]
+						elif event == self.main.Bindings.NEW_LAYER:
+							print("new layer")
+							self.current_layer += 1
+							if len(self.grid) <= self.current_layer:
+								self.grid.append({})
+								self.layer_names.append(
+									f"layer {len(self.grid)}")
+						elif event == self.main.Bindings.PREVIOUS_LAYER:
+							print("previous layer")
+							if self.current_layer > 0:
+								self.current_layer -= 1
+						elif event == self.main.Bindings.DELETE_LAYER:
+							self.grid.pop(self.current_layer)
+							self.layer_names.pop(self.current_layer)
+							self.current_layer -= 1
+						elif event == self.main.Bindings.RENAME_LAYER:
+							self.renaming = True
 					if event == self.main.Bindings.SCALE_TILE_UP:
 						self.tile_size *= 2
-						self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
-						                       self.offset[1] * self.zoom - self.tile_size[1])
+						self.bold = pg.Vector2(
+							self.offset[0] * self.zoom - self.tile_size[
+								0] + self.sidebar.right,
+							self.offset[1] * self.zoom - self.tile_size[1])
 					elif event == self.main.Bindings.SCALE_TILE_DOWN:
 						self.tile_size /= 2
 						self.tile_size[0] = max(1.0, self.tile_size[0])
 						self.tile_size[1] = max(1.0, self.tile_size[1])
-						self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
-						                       self.offset[1] * self.zoom - self.tile_size[1])
-					elif event == self.main.Bindings.SAVE:
+						self.bold = pg.Vector2(
+							self.offset[0] * self.zoom - self.tile_size[
+								0] + self.sidebar.right,
+							self.offset[1] * self.zoom - self.tile_size[1])
+					elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
+						if self.selected_tile is not None:
+							del self.tiles[self.raw_selected_tile[0]][
+								self.raw_selected_tile[1]]
+							self.selected_tile = None
+					if event == self.main.Bindings.SAVE:
 						self.save()
 					elif event == self.main.Bindings.LOAD:
 						self.path = None
 						self.destination = None
 						self.load()
-					elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
-						if self.selected_tile is not None:
-							del self.tiles[self.raw_selected_tile[0]][self.raw_selected_tile[1]]
-							self.selected_tile = None
-					elif event == self.main.Bindings.NEW_LAYER:
-						print("new layer")
-						self.current_layer += 1
-						if len(self.grid) <= self.current_layer:
-							self.grid.append({})
-							self.layer_names.append(f"layer {len(self.grid)}")
-					elif event == self.main.Bindings.PREVIOUS_LAYER:
-						print("previous layer")
-						if self.current_layer > 0:
-							self.current_layer -= 1
-					elif event == self.main.Bindings.DELETE_LAYER:
-						self.grid.pop(self.current_layer)
-						self.layer_names.pop(self.current_layer)
-						self.current_layer -= 1
-					elif event == self.main.Bindings.RENAME_LAYER:
-						self.renaming = True
 					elif event == self.main.Bindings.TOGGLE_TILE_MODE:
 						self.tile_mode_enabled = not self.tile_mode_enabled
 			elif event.type == KEYUP:
@@ -837,13 +845,13 @@ class Project:
 										self.rect[1].h = pos[1] - self.rect[1].y + 1
 			elif event.type == MOUSEWHEEL:
 				if not self.sidebar.collidepoint(pg.mouse.get_pos()) and not self.tile_mode_enabled:
-					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
+					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY * self.main.Options.SIDEBAR_SCROLL_SPEED
 					self.zoom = pg.math.clamp(self.zoom, 0.25, 15)
 					self.tile_cache = {}
 					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
 					                       self.offset[1] * self.zoom - self.tile_size[1])
 				elif self.sidebar.collidepoint(pg.mouse.get_pos()):
-					self.scroll += event.y * self.main.Options.SCROLL_SENSITIVITY * 50
+					self.scroll += event.y * self.main.Options.SCROLL_SENSITIVITY * self.main.Options.SIDEBAR_SCROLL_SPEED
 		if self.tile_mode_enabled:
 			self.sprite_sheet.eventHandler(self.main.events)
 		else:
@@ -998,6 +1006,7 @@ class Project:
 						if event == self.main.Bindings.CANCEL_SELECTION:
 							self.selection = pg.Rect(0, 0, 0, 0)
 							self.selection_group_name = ""
+							self.selection_name = ""
 						elif event.key == K_BACKSPACE:
 							if self.editing_selection_group:
 								self.selection_group_name = self.selection_group_name[:-1]
@@ -1016,9 +1025,8 @@ class Project:
 							self.selection_group_name = ""
 						elif event.key == K_LEFT or event.key == K_RIGHT:
 							self.editing_selection_group = not self.editing_selection_group
-						elif not event.unicode.isascii():
-							pass
-						else:
+						elif event.unicode.isprintable():
+							print(event.unicode)
 							if self.editing_selection_group:
 								self.selection_group_name += event.unicode
 							else:
@@ -1107,10 +1115,11 @@ class TileGroup(PureTileGroup):
 	
 	@property
 	def size(self):
-		tile_size = (max(64, int(self.project.tile_size[0])), max(64, int(self.project.tile_size[0])))
+		tile_size = (max(64, int(self.project.tile_size[0])),
+					 max(64, int(self.project.tile_size[0])))
 		width = max(self.project.sidebar.w, min(len(self.tiles), 5) * tile_size[0] + tile_size[0] // 2)
-		tiles_in_row = width // tile_size[0] - 1
-		height = int((len(self.tiles) // tiles_in_row) * tile_size[1] + tile_size[1] * 1.5) + 64
+		tiles_in_row = width / tile_size[0] - 1
+		height = int((len(self.tiles) / tiles_in_row + 2) * tile_size[1] ) + 64
 		return tile_size, self.project.sidebar.w, height, tiles_in_row
 	
 	def draw(self):

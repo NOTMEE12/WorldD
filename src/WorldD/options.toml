@@ -7,6 +7,7 @@ TOP-OFFSET                  = 50
 # #====[ CONTROLS ]====# #
 MOUSE-SENSITIVITY           = 1
 SCROLL-SENSITIVITY          = 0.25
+SIDEBAR-SCROLL-SPEED        = 100
 SCALE-TILE-UP               = ['up', '']    # 'up' will mean the arrow up
 SCALE-TILE-DOWN             = ['down', '']  # 'down' means arrow down
 TOGGLE-FULLSCREEN           = ['F11', '']
