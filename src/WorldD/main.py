@@ -405,7 +405,7 @@ class Project:
 		                       self.offset[1] * self.zoom - self.tile_size[1])
 		self.tile_cache = {}
 	
-	def load(self, path=None):  
+	def load(self, path=None):
 		if path is not None:
 			self.path = path
 		if self.destination is None:
@@ -845,7 +845,7 @@ class Project:
 										self.rect[1].h = pos[1] - self.rect[1].y + 1
 			elif event.type == MOUSEWHEEL:
 				if not self.sidebar.collidepoint(pg.mouse.get_pos()) and not self.tile_mode_enabled:
-					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY * self.main.Options.SIDEBAR_SCROLL_SPEED
+					self.zoom += event.y * self.main.Options.SCROLL_SENSITIVITY
 					self.zoom = pg.math.clamp(self.zoom, 0.25, 15)
 					self.tile_cache = {}
 					self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
@@ -875,7 +875,7 @@ class Project:
 			
 			"""====[ IMAGE ]===="""
 			self.img = pg.image.load(path).convert_alpha()
-			self.w, self.h = self.img.get_size()
+			self.w, self.h = min(self.img.get_width(), 512), min(self.img.get_height(), 512)
 			
 			"""====[ TEXT ]===="""
 			self.save_selection_group = self.project.save_selection_group
@@ -906,7 +906,7 @@ class Project:
 		
 		@property
 		def area(self):
-			return self.img.get_rect(center=self.center)
+			return self.img.get_rect(center=self.center, size=(self.w, self.h))
 		
 		def draw_lines(self, img, tile_size):
 			if img.get_width() > img.get_height():
@@ -946,7 +946,8 @@ class Project:
 				topleft=(
 					rect.w / 2 * (self.zoom - 1) + self.offset.x,
 					rect.h / 2 * (self.zoom - 1) + self.offset.y
-				)
+				),
+				size=(self.w, self.h)
 			)
 			self.draw_selection(sp_sheet)
 			self.display.blit(sp_sheet, dest, area)
