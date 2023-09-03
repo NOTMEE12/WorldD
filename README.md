@@ -15,6 +15,13 @@
 - `Up and Down arrows` - scaling size of the tile,
 - `CTRL + DELETE` - delete tile from lookup (all occurrences of tile will be deleted),
   > by renaming the tiles in the lookup, every tile in the grid will be replaced.
+- `CTRL + T` - toggle tile mode
+  > tile mode is when you want to add new tiles or delete them
+- `CTRL + E` - edit tile
+  > when editing tiles they aren't replaced, they make a new copy.
+    making it replace could break the entire map, since the map is "indexed",
+    that means each tile is a reference for a tile group and a tile in it.
+- `<` or `>` - toggle between editting group name and tile name
 ##### saving / loading
 - `CTRL + S` - save output,
 - `CTRL + O` - load world,
