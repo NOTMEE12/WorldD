@@ -358,6 +358,7 @@ class Project:
 		self.layers_vis = Layers(self.display, self)
 		self.destination = None
 		self.path = None
+		self.tile_size = pg.Vector2(tile_size)
 		new_project = load is False
 		load_project = load is True
 		recent_project = load is not bool
@@ -387,7 +388,6 @@ class Project:
 				self.path = file.name
 				self.load(file.name)
 		self._selected_tile = None
-		self.tile_size = pg.Vector2(tile_size)
 		self.zoom = 1
 		self.tile_mode_enabled = False
 		self.scroll = 0
@@ -963,8 +963,8 @@ class Project:
 				topleft=(self.w / 2 * (self.zoom - 1) + self.offset.x, self.h / 2 * (self.zoom - 1) + self.offset.y)
 			)
 			vis = pg.Rect(rect.left - area[0], rect.top - area[1], self.w * self.zoom, self.h * self.zoom)
-			x = pg.math.clamp((x - vis.left) / self.zoom, 0, self.w)
-			y = pg.math.clamp((y - vis.top) / self.zoom, 0, self.h)
+			x = pg.math.clamp((x - vis.left) / self.zoom, 0, self.img.get_width())
+			y = pg.math.clamp((y - vis.top) / self.zoom, 0, self.img.get_height())
 			return x, y
 		
 		def eventHandler(self, events):
@@ -1117,7 +1117,7 @@ class TileGroup(PureTileGroup):
 	@property
 	def size(self):
 		tile_size = (max(64, int(self.project.tile_size[0])),
-					 max(64, int(self.project.tile_size[0])))
+					 max(64, int(self.project.tile_size[1])))
 		width = max(self.project.sidebar.w, min(len(self.tiles), 5) * tile_size[0] + tile_size[0] // 2)
 		tiles_in_row = width / tile_size[0] - 1
 		height = int((len(self.tiles) / tiles_in_row + 2) * tile_size[1] ) + 64
