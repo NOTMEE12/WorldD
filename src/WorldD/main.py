@@ -262,7 +262,7 @@ class Main:
 	def exit(self):
 		with open(self.path + '\\recent.txt', 'a') as recent:
 			recent.truncate(0)
-			recent.writelines(self.recent)
+			recent.write('\n'.join(self.recent))
 		for project in self.projects:
 			project.save()
 		pg.quit()
