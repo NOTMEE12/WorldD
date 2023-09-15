@@ -906,7 +906,10 @@ class Project:
 		
 		@property
 		def area(self):
-			return self.img.get_rect(center=self.center, size=(self.w, self.h))
+			rect = pg.Rect(0, 0, 0, 0)
+			rect.size = (self.w, self.h)
+			rect.center = self.center
+			return rect
 		
 		def draw_lines(self, img, tile_size):
 			if img.get_width() > img.get_height():
