@@ -82,9 +82,9 @@ def draw_rect(surf, color, rect, width=0, *args):
 
 class Key:
 	
-	def __init__(self, keycode: str, mod: str):
+	def __init__(self, keycode: str, mods: str):
 		self.key = pg.key.key_code(keycode)
-		self.mod = self.get_mode(mod)
+		self.mod = (self.get_mode(mod) for mod in mods.replace(' ', '').lower().split('+'))
 	
 	@staticmethod
 	def mode_name(mod: int) -> str:
@@ -125,7 +125,7 @@ class Key:
 		return mods[mod] if mod in mods else KMOD_NONE
 	
 	def __eq__(self, other):
-		return other.key == self.key and ((other.mod & self.mod) if self.mod != KMOD_NONE else True)
+		return other.key == self.key and all(((other.mod & mod) if mod != KMOD_NONE else True)for mod in self.mod)
 
 
 class Bindings:
@@ -136,6 +136,7 @@ class Bindings:
 		self.TOGGLE_FULLSCREEN = Key(*bindings['TOGGLE-FULLSCREEN'])
 		self.EXIT = Key(*bindings['EXIT'])
 		self.SAVE = Key(*bindings['SAVE'])
+		self.SAVE_AS = Key(*bindings['SAVE-AS'])
 		self.LOAD = Key(*bindings['LOAD'])
 		self.TILE_LOOKUP_REMOVAL = Key(*bindings['TILE-LOOKUP-REMOVAL'])
 		self.SELECTION_ACCEPT = Key(*bindings['SELECTION-ACCEPT'])
@@ -228,7 +229,8 @@ class Main:
 		"""====[ PROJECT NAME ]===="""
 		pg.draw.rect(self.display, self.colors.Welcome['top-bar-background'],
 					 (0, 0, self.display.get_width(), self.Options.TOP_OFFSET))
-		main_project = self.Header.render('< ' + self.projects[self.selected].path.split('/')[-1] + ' > ', True,
+		selected_project = self.projects[self.selected]
+		main_project = self.Header.render('< ' + (selected_project.path.split('/')[-1] if selected_project is not None else '') + ' > ', True,
 		                                  self.colors.Welcome['top-bar-text-color'])
 		main_pos = ((self.display.get_width() - main_project.get_width()) / 2,
 		            (self.Options.TOP_OFFSET - main_project.get_height()) / 2)
@@ -263,11 +265,11 @@ class Main:
 			             (self.display.get_width() - 5, 5), 5)
 	
 	def exit(self):
-		with open(self.path + '\\recent.txt', 'a') as recent:
-			recent.truncate(0)
-			recent.writelines(self.recent)
 		for project in self.projects:
 			project.save()
+		with open(self.path + '\\recent.txt', 'a') as recent:
+			recent.truncate(0)
+			recent.writelines('\n'.join(self.recent))
 		pg.quit()
 		sys.exit()
 	
@@ -431,7 +433,11 @@ class Project:
 	def save(self):
 		if self.destination is None:
 			if self.path is None or self.path[-4:] == '.png':
-				self.destination = filedialog.asksaveasfile('a+', defaultextension='.world')
+				self.destination = filedialog.asksaveasfile(
+					'a+',
+					defaultextension='.world',
+					title='Save world as: '
+				)
 				if self.destination is not None:
 					self.path = self.destination.name
 			else:
@@ -781,7 +787,10 @@ class Project:
 							del self.tiles[self.raw_selected_tile[0]][
 								self.raw_selected_tile[1]]
 							self.selected_tile = None
-					if event == self.main.Bindings.SAVE:
+					if event == self.main.Bindings.SAVE_AS:
+						self.path = None
+						self.save()
+					elif event == self.main.Bindings.SAVE:
 						self.save()
 					elif event == self.main.Bindings.LOAD:
 						self.path = None

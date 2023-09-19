@@ -12,6 +12,7 @@ SCALE-TILE-UP               = ['up', '']    # 'up' will mean the arrow up
 SCALE-TILE-DOWN             = ['down', '']  # 'down' means arrow down
 TOGGLE-FULLSCREEN           = ['F11', '']
 SAVE                        = ['s', 'ctrl']
+SAVE-AS                     = ['s', 'ctrl + shift']
 LOAD                        = ['o', 'ctrl']
 EXIT                        = ['escape', 'shift']
 CANCEL-SELECTION            = ['escape', '']
