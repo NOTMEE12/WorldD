@@ -1,13 +1,21 @@
-import os
-import random
-import sys
 import json
+import os
+import sys
 import tkinter
+import tomllib
 from tkinter import filedialog
+from typing import TypeVar, Union
 import pygame as pg
 from pygame.locals import *
-import tomllib
-from typing import TypeVar
+try:
+	import colorama
+	RED = colorama.Fore.RED
+	GREEN = colorama.Fore.LIGHTGREEN_EX
+	YELLOW = colorama.Fore.YELLOW
+	RESET = colorama.Fore.RESET
+except ImportError:
+	RED, GREEN, YELLOW, RESET = '', '', '', ''
+	
 
 pg.init()
 tkinter.Tk().withdraw()
@@ -21,10 +29,23 @@ TILES = dict[str, PureTileGroup]
 GRID = list[dict[tuple[int, int], list[str, str]]]
 
 
-def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
-	""":returns: tile size, sprite sheet path, tiles, grid"""
+def load(path: Union[str, object], spec_version=None, print_out: bool=True) -> Union[tuple[list[int, int], str, TILES, GRID, list], None]:
+	"""
+	:param path: str, path to file
+	:param print_out: boolean value, if False: no printing.
+	:param spec_version: specify version, if None then it will automatically match.
+	:returns: tile size, sprite sheet path, tiles, grid
+	"""
+	def dprint(text):
+		if print_out:
+			print(text)
+	dprint(f'{YELLOW}[LOADING] > {GREEN}STARTED{RESET}')
 	if type(path) is str:
+		dprint(f'{YELLOW}[LOADING] > OPENING A FILE ({path}){RESET}')
 		path = open(path, 'rb')
+		dprint(f'{YELLOW}[LOADING] > OPENED A FILE{RESET}')
+	else:
+		dprint(f'{YELLOW}[LOADING] > FILE ALREADY OPENED{RESET}')
 	
 	def load_v0_12():
 		sprite_sheet: str = data['img']
@@ -40,18 +61,24 @@ def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
 	
 	def load_v1_00():
 		tile_size: list[int, int] = data['tile-size']
+		dprint(f'{GREEN}[LOADED] > TILE SIZE ({tile_size}){RESET}')
 		tiles: dict[str, PureTileGroup] = \
 			{
 				name: PureTileGroup(name, {tile: pos for tile, pos in tile_group['tiles'].items()}, tile_group['pos'])
 				for name, tile_group in data['data'].items()
 			}
+		dprint(f'{GREEN}[LOADED] > TILES{RESET}')
 		grid: GRID = \
 			[
 				{tuple(map(int, map(float, pos.split(',')))): list(tile) for pos, tile in layer.items()}
 				for layer in data['grid']
 				]
+		dprint(f'{GREEN}[LOADED] > GRID{RESET}')
 		sprite_sheet: str = data['img']
+		dprint(f'{GREEN}[LOADED] > IMG ({sprite_sheet}){RESET}')
 		layer_names = [layer for layer in data['layer-names']]
+		dprint(f'{GREEN}[LOADED] > LAYER NAMES{RESET}')
+		dprint(f'{YELLOW}==[{GREEN}LOADING SUCCESSFUL{YELLOW}]=={RESET}')
 		return tile_size, sprite_sheet, tiles, grid, layer_names
 	
 	data = json.load(path)
@@ -60,13 +87,24 @@ def load(path: str | object) -> tuple[list[int, int], str, TILES, GRID, list]:
 	else:
 		version = data['version']
 	
+	if spec_version is not None:
+		dprint(f'{YELLOW}[LOADING] > {GREEN}SPECIFIED VERSION ({spec_version}){RESET}')
+		version = spec_version
+		suffix = ''
+	else:
+		suffix = '(UNSAFE MATCHING)'
+		
 	match version:
 		case "? 0.12":
+			dprint(f'{YELLOW}[LOADING] > VERSION MATCHED: 0.12 {suffix}{RESET}')
 			return load_v0_12()
 		case "1.0.0":
+			dprint(f'{YELLOW}[LOADING] > VERSION MATCHED: 1.0.0{RESET}')
 			return load_v1_00()
 		case _:
-			print("VERSION UNKNOWN")
+			dprint(f'{RED}[LOADING] > VERSION UNMATCHED{RESET}')
+			dprint(f'{RED}[LOADING] > RETURNING NOTHING{RESET}')
+			return None
 
 
 def draw_rect(surf, color, rect, width=0, *args):
@@ -84,7 +122,7 @@ class Key:
 	
 	def __init__(self, keycode: str, mods: str):
 		self.key = pg.key.key_code(keycode)
-		self.mod = (self.get_mode(mod) for mod in mods.replace(' ', '').lower().split('+'))
+		self.mod = [self.get_mode(mod) for mod in mods.replace(' ', '').lower().split('+')]
 	
 	@staticmethod
 	def mode_name(mod: int) -> str:
@@ -125,7 +163,9 @@ class Key:
 		return mods[mod] if mod in mods else KMOD_NONE
 	
 	def __eq__(self, other):
-		return other.key == self.key and all(((other.mod & mod) if mod != KMOD_NONE else True)for mod in self.mod)
+		key = other.key == self.key
+		mods = all(((other.mod & mod) if mod != KMOD_NONE else True)for mod in self.mod)
+		return key and mods
 
 
 class Bindings:
@@ -294,11 +334,13 @@ class Main:
 				elif event == self.Bindings.TOGGLE_FULLSCREEN:
 					pg.display.toggle_fullscreen()
 				elif event == self.Bindings.PROJECT_SELECTION_LEFT:
+					print(YELLOW + '[PROJECT-SELECTION] > LEFT {%s}' % self.selected + RESET)
 					self.selected -= 1
 					self.selected = pg.math.clamp(self.selected, 0, len(self.projects) - 1)
 				elif event == self.Bindings.PROJECT_SELECTION_RIGHT:
 					self.selected += 1
 					self.selected = pg.math.clamp(self.selected, 0, len(self.projects) - 1)
+					print(YELLOW + '[PROJECT-SELECTION] > RIGHT {%s}' % self.selected + RESET)
 		if not self.popups:
 			self.projects[self.selected].eventHandler()
 		else:
@@ -732,6 +774,7 @@ class Project:
 				if self.renaming:
 					if event == self.main.Bindings.CANCEL_SELECTION or event == self.main.Bindings.SELECTION_ACCEPT:
 						self.renaming = False
+						print('[SELECTION] > CANCEL/ACCEPT')
 					elif event.key == K_BACKSPACE:
 						self.layer_names[self.current_layer] = self.layer_names[self.current_layer][0:-1]
 					elif event.unicode.isascii():
@@ -743,30 +786,37 @@ class Project:
 							self.rect[0] = False
 							self.rect[1].topleft = (0, 0)
 							self.rect[1].size = (0, 0)
+							print('[TOOL] > RECT')
 						if event == self.main.Bindings.AUTOTILE_RECT:
 							self.tool = 'autotile-rect'
 							self.rect[0] = False
 							self.rect[1].topleft = (0, 0)
 							self.rect[1].size = (0, 0)
+							print('[TOOL] > AUTOTILE-RECT')
 						if event == self.main.Bindings.BRUSH:
 							self.tool = 'brush'
 							self.rect = [False, pg.Rect(0, 0, 0, 0)]
+							print('[TOOL] > BRUSH')
 						elif event == self.main.Bindings.NEW_LAYER:
-							print("new layer")
 							self.current_layer += 1
 							if len(self.grid) <= self.current_layer:
 								self.grid.append({})
 								self.layer_names.append(
 									f"layer {len(self.grid)}")
+								print('[LAYER] > NEW {%s}' % self.current_layer)
+							else:
+								print('[LAYER] > UP {%s}' % self.current_layer)
 						elif event == self.main.Bindings.PREVIOUS_LAYER:
-							print("previous layer")
 							if self.current_layer > 0:
 								self.current_layer -= 1
+								print('[LAYER] > PREVIOUS')
 						elif event == self.main.Bindings.DELETE_LAYER:
+							print('[LAYER] > DELETE {%s}' % self.current_layer)
 							self.grid.pop(self.current_layer)
 							self.layer_names.pop(self.current_layer)
 							self.current_layer -= 1
 						elif event == self.main.Bindings.RENAME_LAYER:
+							print('[LAYER] > RENAME {%s}' % self.current_layer)
 							self.renaming = True
 					if event == self.main.Bindings.SCALE_TILE_UP:
 						self.tile_size *= 2
@@ -774,6 +824,7 @@ class Project:
 							self.offset[0] * self.zoom - self.tile_size[
 								0] + self.sidebar.right,
 							self.offset[1] * self.zoom - self.tile_size[1])
+						print('[TILE-SIZE] > MULT {to: %s}' % self.tile_size)
 					elif event == self.main.Bindings.SCALE_TILE_DOWN:
 						self.tile_size /= 2
 						self.tile_size[0] = max(1.0, self.tile_size[0])
@@ -782,21 +833,29 @@ class Project:
 							self.offset[0] * self.zoom - self.tile_size[
 								0] + self.sidebar.right,
 							self.offset[1] * self.zoom - self.tile_size[1])
+						print('[TILE-SIZE] > DIV {to: %s}' % self.tile_size)
 					elif event == self.main.Bindings.TILE_LOOKUP_REMOVAL:
 						if self.selected_tile is not None:
 							del self.tiles[self.raw_selected_tile[0]][
 								self.raw_selected_tile[1]]
 							self.selected_tile = None
+							print('[TILE] > LOOKUP-REMOVAL')
 					if event == self.main.Bindings.SAVE_AS:
+						print('[SAVE] > AS')
 						self.path = None
 						self.save()
+						print('[SAVE] > SUCCESSFUL')
 					elif event == self.main.Bindings.SAVE:
+						print('[SAVE] > NORMAL')
 						self.save()
+						print('[SAVE] > SUCCESSFUL')
 					elif event == self.main.Bindings.LOAD:
 						self.path = None
 						self.destination = None
 						self.load()
+						print(f'[LOAD] > {self.path}')
 					elif event == self.main.Bindings.TOGGLE_TILE_MODE:
+						print('[TILE] > ACTIVE-MODe')
 						self.tile_mode_enabled = not self.tile_mode_enabled
 			elif event.type == KEYUP:
 				if event == self.main.Bindings.RECT:
