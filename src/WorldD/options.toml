@@ -7,7 +7,7 @@ TOP-OFFSET                  = 50
 # #====[ CONTROLS ]====# #
 MOUSE-SENSITIVITY           = 1
 SCROLL-SENSITIVITY          = 0.25
-SIDEBAR-SCROLL-SPEED        = 100
+SIDEBAR-SCROLL-SPEED        = 256
 SCALE-TILE-UP               = ['up', '']    # 'up' will mean the arrow up
 SCALE-TILE-DOWN             = ['down', '']  # 'down' means arrow down
 TOGGLE-FULLSCREEN           = ['F11', '']
@@ -35,6 +35,7 @@ DELETE-LAYER                = ['delete', 'shift']
 RENAME-LAYER                = ['r', 'ctrl']
 TOGGLE-TILE-MODE            = ['t', 'ctrl']
 EDIT-TILE                   = ['e', 'ctrl']
+TILE-EXPORT                 = ['e', 'alt']
 # tools
 RECT                        = ['x', '']
 BRUSH                       = ['w', '']

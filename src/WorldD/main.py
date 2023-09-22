@@ -201,6 +201,7 @@ class Bindings:
 		self.RENAME_LAYER = Key(*bindings['RENAME-LAYER'])
 		self.TOGGLE_TILE_MODE = Key(*bindings['TOGGLE-TILE-MODE'])
 		self.EDIT_TILE = Key(*bindings['EDIT-TILE'])
+		self.EXPORT_TILE = Key(*bindings['TILE-EXPORT'])
 
 
 class Options:
@@ -1084,6 +1085,25 @@ class Project:
 								self.selection_group_name = self.selection_group_name[:-1]
 							else:
 								self.selection_name = self.selection_name[:-1]
+						elif event == self.main.Bindings.EXPORT_TILE:
+							en_x, en_y = 0, 0
+							id_ = self.selection_name
+
+							for x in range(self.selection.x, self.selection.right):
+								if x % self.project.tile_size[0] == 0:
+									en_x += 1
+									for y in range(self.selection.y, self.selection.bottom):
+										if y % self.project.tile_size[1] == 0:
+											en_y += 1
+											if self.selection_group_name not in self.project.tiles:
+												self.project.tiles[self.selection_group_name]: TileGroup = TileGroup(
+													self.project,
+													self.selection_group_name,
+													{}
+												)
+											self.project.tiles[self.selection_group_name][id_ + f' - {x}x{y}'] = (x, y, *self.project.tile_size)
+							self.selection = pg.Rect(0, 0, 0, 0)
+									
 						elif event == self.main.Bindings.SELECTION_ACCEPT:
 							if self.selection_group_name not in self.project.tiles:
 								self.project.tiles[self.selection_group_name]: TileGroup = TileGroup(self.project,
@@ -1094,7 +1114,6 @@ class Project:
 								del self.project.tiles[self.selection_group_name][self.selection_name]
 							self.project.tiles[self.selection_group_name][id_] = tuple(self.selection.copy())
 							self.selection = pg.Rect(0, 0, 0, 0)
-							self.selection_group_name = ""
 						elif event.key == K_LEFT or event.key == K_RIGHT:
 							self.editing_selection_group = not self.editing_selection_group
 						elif event.unicode.isprintable():

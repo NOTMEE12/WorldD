@@ -17,6 +17,22 @@
   > by renaming the tiles in the lookup, every tile in the grid will be replaced.
 - `CTRL + T` - toggle tile mode
   > tile mode is when you want to add new tiles or delete them
+- `ALT + E` - export tiles
+  > classically you have two inputs, one for the tile group name and one for the tile name. 
+  > 
+  > export feature will make so it will generate tiles from starting point to the end selection
+  > with each tiles having the selected tile size.
+  >
+  > for example, you will start at 0x0 and end at 0x64 with the tile size being (32, 32) 
+  > and name of the tile being "tiles":
+  > 
+  > you will have tiles: 
+  > 
+  > (0, 0, 32, 32) - "tiles - 0x0", 
+  > 
+  > (0, 32, 32, 32) - "tiles - 1x0", 
+  > 
+  > (0, 64, 32,32) - "tiles - 2x0"
 - `CTRL + E` - edit tile
   > when editing tiles they aren't replaced, they make a new copy.
     making it replace could break the entire map, since the map is "indexed",
@@ -24,6 +40,7 @@
 - `<` or `>` - toggle between editting group name and tile name
 ##### saving / loading
 - `CTRL + S` - save output,
+- `CTRL + SHIFT + s` - save as,
 - `CTRL + O` - load world,
 ##### Project related
 - `Q` - move project selection to left
