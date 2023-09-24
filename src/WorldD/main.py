@@ -909,7 +909,7 @@ class Project:
 						                       self.offset[1] * self.zoom - self.tile_size[1])
 					elif event.buttons[0]:
 						if self.tool == 'brush':
-							if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
+							if not any(group.collidepoint(event.pos) for group in self.tiles.values()) and not self.layers_vis.collidepoint(event.pos):
 								self.set_block(self.current_block(event.pos))
 						elif self.tool == 'rect' or self.tool == 'autotile-rect':
 								if self.rect[0]:
@@ -1575,7 +1575,7 @@ class Layers:
 	
 	def __init__(self, display: pg.Surface, project: Project, pos: tuple[int, int] = None):
 		if pos is None:
-			pos = display.get_width()//15, display.get_height()//1.25
+			pos = display.get_width()-350, display.get_height()-300
 		self.display: pg.Surface = display
 		self.project: Project = project
 		self.header: pg.Font = project.header
@@ -1588,7 +1588,7 @@ class Layers:
 		cl = self.project.window_outline_color if not self.selected else self.project.selected_window_outline_color
 		
 		layers: int = len(self.project.grid)
-		height: int = min(layers, 5) * 50 + 50
+		height: int = 300
 		texture: pg.Surface = pg.Surface((350, height))
 		text: pg.Surface = self.header.render("Layers", True, cl)
 		texture.blit(text, ((texture.get_width() - text.get_width())/2, 10))
@@ -1610,6 +1610,10 @@ class Layers:
 		
 		pg.draw.rect(self.display, cl, (self.pos-(2, 2), (350+4, height+4)), border_radius=15)
 		self.display.blit(texture, self.pos)
+	
+	def collidepoint(self, *pos):
+		height: int = 300
+		return pg.Rect(self.pos, (350, height)).collidepoint(pos)
 	
 	def event_handler(self, events):
 		for event in events:
