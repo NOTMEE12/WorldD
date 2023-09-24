@@ -37,6 +37,7 @@ TOGGLE-TILE-MODE            = ['t', 'ctrl']
 EDIT-TILE                   = ['e', 'ctrl']
 TILE-EXPORT                 = ['e', 'alt']
 # tools
+RESET-TILE                  = ['e', '']
 RECT                        = ['x', '']
 BRUSH                       = ['w', '']
 AUTOTILE-RECT               = ['x', 'shift']

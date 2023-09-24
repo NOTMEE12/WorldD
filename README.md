@@ -11,6 +11,7 @@
 ##### tile related
 - `W` - brush tool (default)
 - `X` - rect fill tool
+- `E` - reset tile to nothing (eraser)
 - `SHIFT + X` - rect autotile fill tool
 - `Up and Down arrows` - scaling size of the tile,
 - `CTRL + DELETE` - delete tile from lookup (all occurrences of tile will be deleted),

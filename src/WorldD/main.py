@@ -183,6 +183,7 @@ class Bindings:
 		self.CANCEL_SELECTION = Key(*bindings['CANCEL-SELECTION'])
 		self.PROJECT_SELECTION_LEFT = Key(*bindings['PROJECT-SELECTION-LEFT'])
 		self.PROJECT_SELECTION_RIGHT = Key(*bindings['PROJECT-SELECTION-RIGHT'])
+		self.RESET_TILE = Key(*bindings['RESET-TILE'])
 		self.RECT = Key(*bindings['RECT'])
 		self.AUTOTILE_RECT = Key(*bindings['AUTOTILE-RECT'])
 		self.BRUSH = Key(*bindings['BRUSH'])
@@ -536,7 +537,7 @@ class Project:
 		return self._selected_tile
 	
 	def draw_hover_rect(self):
-		if not (self.selected_tile is not None and self.rect[0]):
+		if not self.rect[0]:
 			return
 		dis_rect = self.display.get_rect()
 		size = (self.tile_size.x * self.zoom, self.tile_size.y * self.zoom)
@@ -548,15 +549,18 @@ class Project:
 		top = rect.top if rect.h > 0 else rect.bottom - 1
 		bottom = rect.bottom if rect.h > 0 else rect.top + 1
 		
+		if self.selected_tile is not None:
+			tile = pg.transform.scale(self.sprite_sheet.img.subsurface(self.selected_tile), size)
+		else:
+			tile = pg.Surface(size)
+		
 		for x_ in range(left, right):
 			for y_ in range(top, bottom):
 				x = self.bold.x + size[0] * x_
 				y = self.bold.y + size[1] * y_
 				if pg.Rect(0, self.main.Options.TOP_OFFSET, dis_rect.w, dis_rect.h - self.main.Options.TOP_OFFSET) \
 						.colliderect(pg.Rect((x, y), size)):
-					self.display.blit(
-						pg.transform.scale(self.sprite_sheet.img.subsurface(self.selected_tile), size),
-						(x, y))
+					self.display.blit(tile, (x, y))
 		w = 5
 		left = self.bold.x + size[0] * left - w
 		top = self.bold.y + size[1] * top - w
@@ -723,8 +727,9 @@ class Project:
 				group, name = self._selected_tile
 			self.grid[self.current_layer][pos] = [group, name]
 		else:
-			pass
-	
+			if pos in self.grid[self.current_layer]:
+				del self.grid[self.current_layer][pos]
+		
 	def upload_rect_to_grid(self, width, height):
 		for x in range(width[0], width[1]):
 			for y in range(height[0], height[1]):
@@ -782,6 +787,8 @@ class Project:
 						self.layer_names[self.current_layer] += event.unicode
 				else:
 					if not self.tile_mode_enabled:
+						if event == self.main.Bindings.RESET_TILE:
+							self.selected_tile = None
 						if event == self.main.Bindings.RECT:
 							self.tool = 'rect'
 							self.rect[0] = False
@@ -868,16 +875,15 @@ class Project:
 			elif event.type == MOUSEBUTTONDOWN and not self.tile_mode_enabled:
 				if event.button == 1:
 					if not event.pos[0] < self.sidebar.right:
-						if self.selected_tile is not None:
-							if self.tool == 'brush':
-								if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
-									self.set_block(self.current_block(event.pos))
-							elif self.tool == 'rect' or self.tool == 'autotile-rect':
-								if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
-									self.rect[0] = True
-									self.rect[1] = pg.Rect(self.current_block(), (1, 1))
+						if self.tool == 'brush':
+							if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
+								self.set_block(self.current_block(event.pos))
+						elif self.tool == 'rect' or self.tool == 'autotile-rect':
+							if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
+								self.rect[0] = True
+								self.rect[1] = pg.Rect(self.current_block(), (1, 1))
 			elif event.type == MOUSEBUTTONUP:
-				if self.selected_tile is not None and not self.tile_mode_enabled:
+				if not self.tile_mode_enabled:
 					if self.tool == 'rect' or self.tool == 'autotile-rect':
 						if self.rect[0]:
 							rect: pg.Rect = self.rect[1]
@@ -902,11 +908,10 @@ class Project:
 						self.bold = pg.Vector2(self.offset[0] * self.zoom - self.tile_size[0] + self.sidebar.right,
 						                       self.offset[1] * self.zoom - self.tile_size[1])
 					elif event.buttons[0]:
-						if self.selected_tile is not None:
-							if self.tool == 'brush':
-								if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
-									self.set_block(self.current_block(event.pos))
-							elif self.tool == 'rect' or self.tool == 'autotile-rect':
+						if self.tool == 'brush':
+							if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
+								self.set_block(self.current_block(event.pos))
+						elif self.tool == 'rect' or self.tool == 'autotile-rect':
 								if self.rect[0]:
 									if not any(group.collidepoint(event.pos) for group in self.tiles.values()):
 										pos = self.current_block(pg.mouse.get_pos())
