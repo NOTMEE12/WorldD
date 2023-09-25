@@ -34,7 +34,7 @@ def load(path: Union[str, object], spec_version=None, print_out: bool=True) -> U
 	:param path: str, path to file
 	:param print_out: boolean value, if False: no printing.
 	:param spec_version: specify version, if None then it will automatically match.
-	:returns: tile size, sprite sheet path, tiles, grid
+	:returns: tile size, sprite sheet path, tiles, grid, layer names
 	"""
 	def dprint(text):
 		if print_out:
@@ -949,7 +949,7 @@ class Project:
 			
 			"""====[ IMAGE ]===="""
 			self.img = pg.image.load(path).convert_alpha()
-			self.w, self.h = min(self.img.get_width(), 512), min(self.img.get_height(), 512)
+			self.w, self.h = 512, 512
 			
 			"""====[ TEXT ]===="""
 			self.save_selection_group = self.project.save_selection_group
