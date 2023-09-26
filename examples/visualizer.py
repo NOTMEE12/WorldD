@@ -1,7 +1,8 @@
 import pygame
-import src.WorldD as WorldD
+import WorldD
 from dataclasses import dataclass
 import typing
+import sys
 
 pygame.init()
 
@@ -98,7 +99,7 @@ class Main:
 	def exit():
 		"""exit method, will be run on the exit of the game"""
 		pygame.quit()
-		exit()
+		sys.exit()
 	
 	def update(self):
 		for event in pygame.event.get():

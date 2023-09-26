@@ -21,6 +21,6 @@ if len(sys.argv) <= 1:
 		print(f'{YELLOW}{id}{RESET} - {MAGENTA}{name}{RESET}')
 	name = input("run: ")
 	print(YELLOW + '=' * 32 + RESET)
-	os.system(f'python {name if name not in scripts else scripts[name]}.py')
+	os.system(f'python {os.path.join(os.path.dirname(__file__), (name if name not in scripts else scripts[name])+".py")}')
 else:
 	os.system(f'python {sys.argv[1]}.py')

@@ -1,7 +1,8 @@
 import pygame
-import src.WorldD as WorldD
+import WorldD
 from dataclasses import dataclass
 import typing
+import sys
 
 pygame.init()
 
@@ -41,10 +42,8 @@ class Player:
 class World:
 	
 	def __init__(self, main):
-		
 		# load the world and export the most important things
-		tile_size, _, self.tiles, self.grid, layer_names = WorldD.load(
-			'asset-world.world')
+		tile_size, _, self.tiles, self.grid, layer_names = WorldD.load('asset-world.world')
 		# scale the tile size
 		self.tile_size = pygame.Vector2(tile_size) * main.SCALE
 		
@@ -76,6 +75,7 @@ class World:
 		int, int]:
 		"""
 		:parameter grid_pos: position on the grid
+		:parameter offset: offset of Main offset * tile size, if not given then calculated in this function.
 		:returns: position where tile should be rendered based on the grid position
 		"""
 		if cache:
@@ -170,7 +170,7 @@ class Main:
 	def exit():
 		"""exit method, will be run on the exit of the game"""
 		pygame.quit()
-		exit()
+		sys.exit()
 	
 	def update(self):
 		for event in pygame.event.get():
