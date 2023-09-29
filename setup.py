@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
 	name='WorldD',
-	version='1.0.0',
+	version='p1.0.1',
 	author="Aleks Baran",
 	author_email="legominefan@gmail.com",
 	description="Level editor made specifically for pygame games",
