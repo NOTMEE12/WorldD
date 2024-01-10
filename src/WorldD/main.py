@@ -1,12 +1,23 @@
+import asyncio
 import json
 import os
 import sys
-import tkinter
 import tomllib
-from tkinter import filedialog
+import sys
 from typing import TypeVar, Union
 import pygame as pg
 from pygame.locals import *
+import win32rcparser
+
+IS_WEB = sys.platform.lower() == 'emscripten'
+IS_WEB = True
+SEPARATOR = os.sep if not IS_WEB else '/'
+
+if not IS_WEB:
+	import tkinter
+	from tkinter import filedialog
+	tkinter.Tk().withdraw()
+
 try:
 	import colorama
 	RED = colorama.Fore.RED
@@ -18,7 +29,6 @@ except ImportError:
 	
 
 pg.init()
-tkinter.Tk().withdraw()
 
 __version__ = '1.0.0'
 
@@ -241,7 +251,7 @@ class Main:
 		self.display = pg.display.set_mode(self.win, RESIZABLE)
 		self.clock = pg.Clock()
 		self.events = ()
-		self.work_path = os.path.dirname(os.path.abspath(__file__)) + '\\'
+		self.work_path = os.path.dirname(os.path.abspath(__file__)) + f'{SEPARATOR}'
 		self.Options = Options(self.work_path + 'options.toml')
 		self.Bindings = Bindings(self.Options.options)
 		"""====[ COLOR SCHEME ]===="""
@@ -255,10 +265,10 @@ class Main:
 		self.Header = pg.font.SysFont(self.Options.HEADER_FONT, 50, True, False)
 		self.SmallerHeader = pg.font.SysFont(self.Options.HEADER_FONT, 30, False, False)
 		self.path = pg.system.get_pref_path('NotMEE12', 'WorldD')
-		if not os.path.exists(self.path + '\\recent.txt'):
+		if not os.path.exists(self.path + f'{SEPARATOR}recent.txt'):
 			self.recent = []
 		else:
-			with open(self.path + '\\recent.txt') as recent:
+			with open(self.path + f'{SEPARATOR}recent.txt') as recent:
 				self.recent = list(recent.read().split('\n'))
 		self.projects: list[Project | Welcome] = [Welcome(self)]
 		self.popups = []
@@ -309,7 +319,7 @@ class Main:
 	def exit(self):
 		for project in self.projects:
 			project.save()
-		with open(self.path + '\\recent.txt', 'a') as recent:
+		with open(self.path + f'{SEPARATOR}recent.txt', 'a') as recent:
 			recent.truncate(0)
 			recent.writelines('\n'.join(self.recent))
 		pg.quit()
@@ -349,7 +359,7 @@ class Main:
 			for popup in self.popups:
 				popup.eventHandler(self.events)
 		
-	def run(self):
+	async def run(self):
 		while True:
 			self.refresh()
 			pg.display.flip()
@@ -363,6 +373,8 @@ class Main:
 				tiles = ''
 			path = project.path
 			pg.display.set_caption(f'{path} - WorldD | {tiles}{self.clock.get_fps():.2f} FPS')
+			
+			await asyncio.sleep(0)
 
 
 class Project:
@@ -408,7 +420,7 @@ class Project:
 		new_project = load is False
 		load_project = load is True
 		recent_project = load is not bool
-		if new_project:
+		if new_project and not IS_WEB:
 			filetypes = [('image', '*.png'), ('image', '*.jpg')]
 			file = filedialog.askopenfile(filetypes=filetypes)
 			if file is None:
@@ -416,7 +428,7 @@ class Project:
 			self.path = file.name
 			self.sprite_sheet = self.SpriteSheet(file.name, self.display, self)
 			file.close()
-		elif load_project:
+		elif load_project and not IS_WEB:
 			filetypes = [('world', '*.world')]
 			file = filedialog.askopenfile(filetypes=filetypes)
 			if file is None:
@@ -456,7 +468,8 @@ class Project:
 			self.path = path
 		if self.destination is None:
 			if self.path is None:
-				self.destination = filedialog.askopenfile('r', defaultextension='.world')
+				if not IS_WEB:
+					self.destination = filedialog.askopenfile('r', defaultextension='.world')
 				self.path = self.destination.name
 			else:
 				self.destination = open(self.path)
@@ -477,11 +490,12 @@ class Project:
 	def save(self):
 		if self.destination is None:
 			if self.path is None or self.path[-4:] == '.png':
-				self.destination = filedialog.asksaveasfile(
-					'a+',
-					defaultextension='.world',
-					title='Save world as: '
-				)
+				if not IS_WEB:
+					self.destination = filedialog.asksaveasfile(
+						'a+',
+						defaultextension='.world',
+						title='Save world as: '
+					)
 				if self.destination is not None:
 					self.path = self.destination.name
 			else:
@@ -686,7 +700,9 @@ class Project:
 		if self.tile_mode_enabled:
 			self.sprite_sheet.render(self.tile_size)
 		else:
-			self.draw_grid_lines()
+			if self.tile_size.x < 4:
+				print('draw grid')
+				self.draw_grid_lines()
 			# ===[ GRID ]===
 			self.draw_grid_tiles()
 			if self.tool == 'brush':
@@ -1629,4 +1645,4 @@ class Layers:
 	
 
 if __name__ == '__main__':
-	Main().run()
+	asyncio.run(Main().run())
