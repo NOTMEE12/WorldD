@@ -1,22 +1,37 @@
 import asyncio
 import json
 import os
-import sys
 import tomllib
 import sys
-from typing import TypeVar, Union
+from typing import TypeVar, Union, IO
 import pygame as pg
 from pygame.locals import *
-import win32rcparser
+import platform
 
 IS_WEB = sys.platform.lower() == 'emscripten'
-IS_WEB = True
 SEPARATOR = os.sep if not IS_WEB else '/'
 
+# UPLOAD
 if not IS_WEB:
 	import tkinter
 	from tkinter import filedialog
 	tkinter.Tk().withdraw()
+
+def request_upload(filetypes) -> IO | None:
+	if IS_WEB:
+		file = None
+		def upload(upload_file):
+			try:
+				file = open(upload_file.text)
+			except:
+				file = None
+		platform.EventTarget.addEventListener(None, "upload", upload)
+		platform.window.dlg_multifile.hidden = False
+		platform.window.dlg_multifile.click()
+		return file
+	else:
+		return filedialog.askopenfile(filetypes=filetypes)
+
 
 try:
 	import colorama
@@ -420,17 +435,17 @@ class Project:
 		new_project = load is False
 		load_project = load is True
 		recent_project = load is not bool
-		if new_project and not IS_WEB:
+		if new_project:
 			filetypes = [('image', '*.png'), ('image', '*.jpg')]
-			file = filedialog.askopenfile(filetypes=filetypes)
+			file = request_upload(filetypes)
 			if file is None:
 				raise IOError
 			self.path = file.name
 			self.sprite_sheet = self.SpriteSheet(file.name, self.display, self)
 			file.close()
-		elif load_project and not IS_WEB:
+		elif load_project:
 			filetypes = [('world', '*.world')]
-			file = filedialog.askopenfile(filetypes=filetypes)
+			file = request_upload(filetypes=filetypes)
 			if file is None:
 				raise IOError
 			else:
@@ -700,7 +715,7 @@ class Project:
 		if self.tile_mode_enabled:
 			self.sprite_sheet.render(self.tile_size)
 		else:
-			if self.tile_size.x < 4:
+			if self.tile_size.x > 8 and self.zoom <= 1:
 				print('draw grid')
 				self.draw_grid_lines()
 			# ===[ GRID ]===
